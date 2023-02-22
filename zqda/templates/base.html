@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+<head>
+<title>{% block title %}{{ title }}{% endblock %} zqda</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link href="{{ url_for('static', filename='styles.css')}}" rel="stylesheet">
+<script type="text/javascript" src="https://code.jquery.com/jquery-3.6.3.min.js">
+</script>
+    <script src="{{ url_for('static', filename='jquery.dirty.js')}}" type="text/javascript"></script>
+</head>
+<body class="d-flex flex-column min-vh-100">
+<nav class="navbar bg-primary text-light navbar-expand-lg p-4 border-bottom">
+    <div class="container">
+        <a class="navbar-brand link-light" href="{{ url_for('index') }}">{{ config.TITLE }}</a>
+        <ul class="navbar-nav mr-auto mt-2 mt-lg-0">
+        <li class="nav-item"><a class="nav-link link-light" href="{{ url_for('help')}}">Help</a></li>
+        <li class="nav-item"><a class="nav-link link-light" href="https://github.com/mcdrc/zqda">Source code</a></li>
+        </ul>
+    </div>
+</nav>
+
+<nav>
+    <div class="container pt-5 col-lg-8">
+    {%- for breadcrumb in breadcrumbs -%}
+     <a href="{{ breadcrumb.url }}">{{ breadcrumb.text }}</a>
+    {{ ' / ' if not loop.last }}
+    {%- endfor -%}
+    </div>
+</nav>
+
+<main class="content pt-5 mb-5">
+    <div class="container col-lg-8">
+    <header>
+        {% block header %}<h1>ZQDA {{ title }}</h1>{% endblock %}
+    </header>
+    {% for message in get_flashed_messages() %}
+    <div class="flash">{{ message }}</div>
+    {% endfor %}
+    <div class="pt-4">
+        <p>{{ help }}</p>
+    {% block content %}{{ content }}{% endblock %}
+    </div>
+    </div>
+</main>
+
+<footer class="mt-auto text-lg-start text-muted border-top p-5 bg-light">
+    <section class="container  d-flex justify-content-center justify-content-lg-between">
+        <div class="me-5 d-none d-lg-block">
+            {{config.ADDRESS}}
+        </div>
+        <div>
+            {{ config.LICENSE }}
+        </div>
+    </section>
+</footer>
+</body>
+</html>
