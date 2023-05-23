@@ -197,7 +197,7 @@ def _get_item(library_id, item_key, data='data'):
             i = json.loads(db[item_key])
         except KeyError:
             return None
-    return i[data]
+    return i['data']
 
 
 def _translate_zotero_uri(uri):
