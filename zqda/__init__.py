@@ -22,8 +22,6 @@ app.config.from_mapping(
     LIBRARY = []
     )
 
-Breadcrumbs(app=app)
-
 try:
     os.makedirs(app.config_path)
     os.makedirs(app.data_path)
