@@ -5,7 +5,6 @@ from flask import render_template, url_for, request, redirect, Markup
 from pyzotero import zotero
 import pickle
 import json
-from flask_breadcrumbs import Breadcrumbs, register_breadcrumb
 
 
 HELP = """
@@ -22,7 +21,6 @@ HELP = """
 
 
 @app.route('/cluster_tags')
-@register_breadcrumb(app, '.cluster_tags', 'cluster tags')
 def cluster_tags_select_library():
     """Main page of the tag grouping/clustering tool, which allows the user
     to apply a category tag to all items or annotations that are tagged with
@@ -71,7 +69,7 @@ def _get_filtered_tags(library_id, purge=False, remove=None):
     
     tags = []
     tagfile = 'group_tags_{}.pkl'.format(library_id)
-    pkl = os.path.join(app.instance_path, tagfile)
+    pkl = os.path.join(app.config_path, tagfile)
     prefix = app.config['LIBRARY'][library_id].get('group_tag_prefix', '@')
 
     if os.path.exists(pkl) and not purge:
@@ -106,7 +104,6 @@ def _get_filtered_tags(library_id, purge=False, remove=None):
 
 
 @app.route('/cluster_tags/<library_id>', methods=['GET', 'POST'])
-@register_breadcrumb(app, '.cluster_tags.library_id', 'library')
 def tag_grouper_form(library_id, purge=False, remove=None):
     """Present or process a web form allowing the user to cluster tags in
     a Zotero group library. A list of tags is presented, which includes only

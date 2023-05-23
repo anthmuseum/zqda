@@ -5,10 +5,8 @@ from flask import render_template, url_for
 from markupsafe import Markup
 from pyzotero import zotero
 import json
-from flask_breadcrumbs import Breadcrumbs, register_breadcrumb
 import zqda.core
 
-Breadcrumbs(app=app)
 
 
 def _get_parent_title(library_id, parentItem):
@@ -24,7 +22,6 @@ def _get_parent_title(library_id, parentItem):
 
 
 @app.route('/annotations')
-@register_breadcrumb(app, '.annotations', 'annotations')
 def tag_annotations_select_library():
     """Main page of the annotation viewer, which presents a report of
     PDF annotations in a Zotero library by tag. Present a list of Zotero group
@@ -47,7 +44,6 @@ def tag_annotations_select_library():
                            )
 
 @app.route('/annotations/<library_id>')
-@register_breadcrumb(app, '.annotations.library', 'library')
 def show_annotations_tag_select(library_id):
     """Show a list of tags associated with annotations in the selected
     group library."""
@@ -71,7 +67,6 @@ def show_annotations_tag_select(library_id):
                            )
 
 @app.route('/annotations/<library_id>/<tag>')
-@register_breadcrumb(app, '.annotations.library.tag', 'tag')
 def show_annotations(library_id, tag):
     """Show the annotations associated with a single tag in a Zotero group
     library. Each annotation is presented as applicable with the highlighted 

@@ -3,11 +3,9 @@ import zqda.core
 from flask import render_template, url_for, request, redirect
 from markupsafe import Markup
 from pyzotero import zotero
-from flask_breadcrumbs import register_breadcrumb
 
 
 @app.route('/rename_tags/')
-@register_breadcrumb(app, '.rename_tags', 'rename tags')
 def rename_tags_select_library():
     """Main page of the tag renaming tool viewer, which allows for bulk
     renaming of tags in a Zotero group library. Present a list of Zotero group 
@@ -48,7 +46,6 @@ def _rename(library_id, src_tag, target_tag):
 
 
 @app.route('/rename_tags/<library_id>/', methods=['GET', 'POST'])
-@register_breadcrumb(app, '.rename_tags.library_id', 'library')
 def tag_rename_form(library_id):
     """Present a form allowing for the bulk renaming of tags in a Zotero
     group library. Each tag is presented in an editable field; submitting the

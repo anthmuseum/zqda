@@ -1,23 +1,25 @@
+from werkzeug.exceptions import HTTPException
+from flask import json
 import os
 from zqda import app
 import dbm
 import pickle
 import operator
-from flask import render_template, redirect, url_for, abort, request, make_response, escape, flash, jsonify
+import re
+from flask import render_template, redirect, url_for, abort, request, make_response, escape, flash, jsonify, send_file
 from markupsafe import Markup
-from pyzotero import zotero
+from pyzotero import zotero, zotero_errors
 import json
 import json2table
 from werkzeug.utils import import_string
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_breadcrumbs import register_breadcrumb
 import markdown
-import flask_recaptcha
-recaptcha = flask_recaptcha.ReCaptcha(app)
+# https://stackoverflow.com/questions/71804258/flask-app-nameerror-name-markup-is-not-defined
+# import flask_recaptcha
+from bs4 import BeautifulSoup
+import urllib.parse
 
 
-from flask import json
-from werkzeug.exceptions import HTTPException
 
 @app.errorhandler(HTTPException)
 def handle_exception(e):
@@ -25,7 +27,7 @@ def handle_exception(e):
     return render_template('base.html', content=e.description, title=e.name)
 
 
-@app.route('/set_key', methods = ['POST', 'GET'])
+@app.route('/set_key', methods=['POST', 'GET'])
 def set_key():
     """Set a password for operations on a library. This endpoint should not be
     accessed directly, but called as needed by a password-protected page
@@ -74,10 +76,12 @@ def _sync_items(library_id):
     in the file "versions.pkl" in the application data directory.
     """
     local_ver = 0
-    zot = zotero.Zotero(library_id, 'group')
+    api_key = app.config['LIBRARY'][library_id]['api_key']
+    zot = zotero.Zotero(library_id, 'group', api_key)
+
     remote_ver = zot.last_modified_version()
 
-    pkl = os.path.join(app.instance_path, 'versions.pkl')
+    pkl = os.path.join(app.data_path, 'versions.pkl')
     data = {}
     if os.path.exists(pkl):
         with open(pkl, 'rb') as f:
@@ -88,11 +92,13 @@ def _sync_items(library_id):
 
     items = zot.everything(zot.items(since=local_ver, include='bib,data'))
     item_cache = os.path.join(
-        app.instance_path, 'items_{}.db'.format(library_id))
+        app.data_path, 'items_{}.db'.format(library_id))
 
     with dbm.open(item_cache, 'c') as db:
         for item in items:
             db[item['key']] = json.dumps(item)
+            if item['data']['itemType'] == 'attachment':
+                _load_attachment(zot, item)
 
     data[library_id] = remote_ver
     with open(pkl, 'wb') as f:
@@ -103,14 +109,19 @@ def _sync_items(library_id):
 
 def _sync_item(library_id, item_key):
     """Force (re-)sync of a specific item."""
-    zot = zotero.Zotero(library_id, 'group')
+    api_key = app.config['LIBRARY'][library_id]['api_key']
+    zot = zotero.Zotero(library_id, 'group', api_key)
     item_cache = os.path.join(
-        app.instance_path, 'items_{}.db'.format(library_id))
+        app.data_path, 'items_{}.db'.format(library_id))
 
     item = zot.item(item_key, include='bib,data')
 
     with dbm.open(item_cache, 'c') as db:
         db[item['key']] = json.dumps(item)
+    
+    if item['data']['itemType'] == 'attachment':
+        _load_attachment(zot, item)
+
 
     return "Updated!"
 
@@ -126,6 +137,7 @@ def show_tags(library_id):
                            title='Item {}'.format(data.get('title', ''))
                            )
 
+
 def _get_tags(library_id):
     """Retrieve tags from the stored item metadata for a library.
     Although the Zotero API can return a list of tags, if there is a large
@@ -135,11 +147,11 @@ def _get_tags(library_id):
     tags = {}
 
     item_cache = os.path.join(
-        app.instance_path, 'items_{}.db'.format(library_id))
+        app.data_path, 'items_{}.db'.format(library_id))
 
     if not os.path.exists(item_cache):
         return tags
-        
+
     with dbm.open(item_cache, 'r') as db:
         for key in db.keys():
             i = json.loads(db[key])
@@ -158,10 +170,10 @@ def _get_tags(library_id):
 def _get_items(library_id):
     """Retrieve the item metadata from the database associated with a group
     library."""
-    
+
     items = []
     item_cache = os.path.join(
-        app.instance_path, 'items_{}.db'.format(library_id))
+        app.data_path, 'items_{}.db'.format(library_id))
     if not os.path.exists(item_cache):
         return items
 
@@ -177,7 +189,7 @@ def _get_item(library_id, item_key, data='data'):
     """Retrieve the metadata for a single item from the database associated 
     with a group library."""
     item_cache = os.path.join(
-        app.instance_path, 'items_{}.db'.format(library_id))
+        app.data_path, 'items_{}.db'.format(library_id))
     if not os.path.exists(item_cache):
         return None
     with dbm.open(item_cache, 'r') as db:
@@ -188,6 +200,70 @@ def _get_item(library_id, item_key, data='data'):
     return i[data]
 
 
+def _translate_zotero_uri(uri):
+    # http://zotero.org/groups/4711671/items/UJ8WGSFR
+    m = re.match('^.*zotero.org/groups/(.*?)/items/(.*)', uri)
+    if m:
+        library = m.group(1)
+        key = m.group(2)
+        return '/{}/item/{}'.format(library, key)
+    return uri
+
+
+def _process_citations(txt):
+    # <span class="citation" data-citation="{"citationItems":[{"uris":["http://zotero.org/groups/4711671/items/GXPF7VK9"]},{"uris":["http://zotero.org/groups/4711671/items/UJ8WGSFR"]}],"properties":{}}"> <span class="citation-item">...</span>...</span>
+    soup = BeautifulSoup(txt, 'html.parser')
+    citations = soup.find_all('span', 'citation')
+    for c in citations:
+        data = urllib.parse.unquote(c.get('data-citation', ''))
+        if not 'citationItems' in data:
+            # TODO - perform more robust error checking
+            continue
+        j = json.loads(data)
+        uris = [i['uris'][0] for i in j['citationItems']]
+        n = 0
+        for ci in c.find_all('span', 'citation-item'):
+            ci.name = 'a'
+            ci['href'] = _translate_zotero_uri(uris[n])
+            n = n+1
+    return str(soup)
+
+
+@app.route('/file/<library_id>/<item_key>')
+def blob(library_id, item_key):
+    item = _get_item(library_id, item_key)
+    dir = os.path.join(app.data_path, item_key)
+    filepath = os.path.join(dir, item['filename'])
+    return send_file(filepath, mimetype=item['contentType'])
+
+
+@app.route('/note/<library_id>/<item_key>')
+def note(library_id, item_key):
+
+    data = _get_item(library_id, item_key)
+    if not data:
+        abort(404)
+    if not data.get('note', None):
+        abort(404)
+
+    content = data['note']
+    m = re.search(r'<h1>(.*?)</h1>', data['note'])
+    if m:
+        data['title'] = m.group(1)
+        content = re.sub(r'<h1>(.*?)</h1>', '', content, count=1)
+    else:
+        data['title'] = 'Note'
+    del data['note']  # don't show in the metadata table
+    content = re.sub(r'data-attachment-key="(.*?)"',
+                     'src="/file/{}/\g<1>" class="img-fluid"'.format(library_id), content)
+    content = _process_citations(content)
+
+    return render_template('base.html',
+                           content=Markup(content),
+                           title=data['title'],
+                           )
+
+
 @app.route('/item/<library_id>/<item_key>')
 def show_item(library_id, item_key):
     """Show a table presenting the metadata for a single item."""
@@ -195,11 +271,13 @@ def show_item(library_id, item_key):
     if not data:
         data = {"key": item_key, "description": "Item not in database"}
     table_attributes = {"style": "width:100%", "class": "table"}
+    content = json2table.convert(data, table_attributes=table_attributes)
+
     return render_template('base.html',
-                           content=Markup(json2table.convert(
-                               data, table_attributes=table_attributes)),
+                           content=Markup(content),
                            title='Item {}'.format(data.get('title', ''))
                            )
+
 
 @app.route('/sync')
 def sync():
@@ -216,6 +294,7 @@ def sync():
                            title='Library synchronization'
                            )
 
+
 @app.route('/sync/<library_id>/<item_key>')
 def sync_item(library_id, item_key):
     """Synchronize a single item."""
@@ -228,6 +307,7 @@ def index():
     """Home page of the application."""
     content = markdown.markdown(app.config['DESCRIPTION'])
     return render_template('base.html', content=Markup(content))
+
 
 @app.route('/help', methods=['GET'])
 def help():
@@ -244,12 +324,12 @@ def help():
 
     rule_docs = []
     for rule in rules:
-    
+
         if hasattr(app.view_functions[rule.endpoint], 'import_name'):
             o = import_string(app.view_functions[rule.endpoint]).import_name
             rule_docs.append(o.__doc__)
         else:
-            rule_docs.append(app.view_functions[rule.endpoint].__doc__) 
+            rule_docs.append(app.view_functions[rule.endpoint].__doc__)
     out = []
     out.append('<table class="table">')
     out.append('<tr><th>Rule</th><th>Methods</th><th>Description</th></tr>')
@@ -260,7 +340,8 @@ def help():
         if '<' in rule.rule:
             rulename = escape(rule.rule)
         else:
-            rulename = '<a href="{}">{}</a>'.format(url_for(rule.endpoint), rule.rule)
+            rulename = '<a href="{}">{}</a>'.format(
+                url_for(rule.endpoint), rule.rule)
         out.append(
             '<tr><td>{}</td><td>{}</td><td>{}</td></tr>'.format(rulename, methods, docs or ''))
     out.append('</table>')
