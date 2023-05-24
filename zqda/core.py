@@ -311,10 +311,19 @@ def dict2table(library_id, data):
             data[k] = c
         elif k == 'url':
             data[k] = _a(v, v)
+        elif k == 'parentItem':
+            parent_data = _get_item(library_id, v)
+            title = parent_data['title']
+            data[k] = _a(v, title)
+
+    if 'relations' in data.keys():
+        del data['relations']
 
     table_attributes = {"style": "width:100%",
-          "class": "table table-bordered mt-5"}
-    return json2table.convert(data, table_attributes=table_attributes)
+          "class": "table table-sm mt-4"}
+    j = json2table.convert(data, table_attributes=table_attributes)
+    j = j.replace('<ul>', '<ul class="mb-0 ms-0 ps-0" style="list-style-type:none">')
+    return j
 
 
 def _note(library_id, data):
@@ -331,7 +340,7 @@ def _note(library_id, data):
     content = _process_citations(content)
 
     metadata = dict2table(library_id, data)
-    return content + metadata, data
+    return content + '<hr class="mt-5 border border-primary border-3 opacity-75"">' + metadata, data
 
 
 @app.route('/view/<library_id>/<item_key>')
