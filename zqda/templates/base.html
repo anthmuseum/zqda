@@ -5,6 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 <link href="{{ url_for('static', filename='styles.css')}}" rel="stylesheet">
 <script type="text/javascript" src="https://code.jquery.com/jquery-3.6.3.min.js">
 </script>
@@ -33,7 +34,7 @@
 <main class="content pt-5 mb-5">
     <div class="container col-lg-8">
     <header>
-        {% block header %}<h1>ZQDA {{ title }}</h1>{% endblock %}
+        {% block header %}<h1>{{ title }}</h1>{% endblock %}
     </header>
     {% for message in get_flashed_messages() %}
     <div class="flash">{{ message }}</div>

@@ -104,10 +104,10 @@ def show_annotations(library_id, tag):
         out.append('<p class="b">{}</p>'.format(zotero_link))
         out.append('<p>{}</p>'.format(i.get('annotationText', 'No text')))
         out.append('<p><em>{}</em></p>'.format(i.get('annotationComment', '')))
-        item_tags = ['<a href="{}">{}</a>'.format(url_for(
+        item_tags = ['<a class="btn btn-primary btn-sm" href="{}">{}</a>'.format(url_for(
             'show_annotations', library_id=library_id, tag=v['tag']), v['tag']) for v in i['tags']]
         out.append(
-            '<p>{}</p>'.format(', '.join(item_tags)))
+            '<p>{}</p>'.format(' '.join(item_tags)))
         out.append('</li>')
     out.append('</ol>')
     return render_template('base.html',

@@ -15,7 +15,6 @@ from werkzeug.utils import import_string
 from werkzeug.security import generate_password_hash, check_password_hash
 import markdown
 # https://stackoverflow.com/questions/71804258/flask-app-nameerror-name-markup-is-not-defined
-# import flask_recaptcha
 from bs4 import BeautifulSoup
 import urllib.parse
 
@@ -39,7 +38,6 @@ def set_key():
         abort(400, 'Incomplete request')
     key = args.get('key', None)
 
-    verified = recaptcha.verify()
     if request.method == 'POST':
         if not key:
             flash("Please supply a valid password/key.", "danger")
@@ -52,7 +50,7 @@ def set_key():
 
     return render_template(
         'password.html', library_id=library_id, target=target)
-    return r
+
 
 def _check_key(library_id):
     """Check the user cookies for a valid access key."""
@@ -91,8 +89,20 @@ def _sync_items(library_id):
         return "No changes."
 
     items = zot.everything(zot.items(since=local_ver, include='bib,data'))
-    item_cache = os.path.join(
-        app.data_path, 'items_{}.db'.format(library_id))
+    collections = zot.everything(zot.collections(since=local_ver))
+    
+    for c in collections:
+        c['data']['itemType'] = 'collection'
+        c['data']['items'] = zot.collection_items(c['data']['key'])
+        collection_items = zot.collection_items(c['data']['key'])
+        subcollections = zot.collections_sub(c['data']['key'])
+        for sub in subcollections:
+            sub['data']['itemType'] = 'collection'
+        c['data']['items'] = collection_items + subcollections
+
+    items = items + collections
+
+    item_cache = os.path.join(app.data_path, 'items_{}.db'.format(library_id))
 
     with dbm.open(item_cache, 'c') as db:
         for item in items:
@@ -107,21 +117,39 @@ def _sync_items(library_id):
     return "Updated {} items.".format(len(items))
 
 
-def _sync_item(library_id, item_key):
+def _sync_item(library_id, item_key, item_type='item'):
     """Force (re-)sync of a specific item."""
     api_key = app.config['LIBRARY'][library_id]['api_key']
     zot = zotero.Zotero(library_id, 'group', api_key)
     item_cache = os.path.join(
         app.data_path, 'items_{}.db'.format(library_id))
+    data = _get_item(library_id, item_key)
+    if data and data.get('itemType', '') == 'collection':
+        item_type = 'collection'
+    if item_type == 'collection':
+        try:
+            item = zot.collection(item_key)
+            item['data']['itemType'] = 'collection'
+            collection_items = zot.collection_items(item['data']['key'])
+            subcollections = zot.collections_sub(item['data']['key'])
+            for c in subcollections:
+                c['data']['itemType'] = 'collection'
+            item['data']['items'] = collection_items + subcollections
+            
+        except zotero_errors.ResourceNotFound:
+            abort(404)
 
-    item = zot.item(item_key, include='bib,data')
+    else:
+        try:
+            item = zot.item(item_key, include='bib,data')
+        except zotero_errors.ResourceNotFound:
+            abort(404)
 
     with dbm.open(item_cache, 'c') as db:
         db[item['key']] = json.dumps(item)
     
     if item['data']['itemType'] == 'attachment':
         _load_attachment(zot, item)
-
 
     return "Updated!"
 
@@ -134,8 +162,35 @@ def show_tags(library_id):
     return render_template('base.html',
                            content=Markup(json2table.convert(
                                data, table_attributes=table_attributes)),
-                           title='Item {}'.format(data.get('title', ''))
+                           title=data.get('title', '')
                            )
+
+
+def _get_collections(library_id):
+    """Retrieve collections from the stored item metadata for a library.
+    Although the Zotero API can return a list of collections, this may be
+    faster. 
+    """
+    collections = {}
+
+    item_cache = os.path.join(
+        app.data_path, 'items_{}.db'.format(library_id))
+
+    if not os.path.exists(item_cache):
+        return collections
+
+    with dbm.open(item_cache, 'r') as db:
+        for key in db.keys():
+            i = json.loads(db[key])
+            parent_collections = i['data'].get('collections', []) 
+            if i['data'].get('parentCollection', None):
+                parent_collections.append(i['data']['parentCollection'])
+            for c in parent_collections:
+                if not c in collections:
+                    collections[c] = list()
+                collections[c].append(key)
+
+    return collections
 
 
 def _get_tags(library_id):
@@ -197,7 +252,7 @@ def _get_item(library_id, item_key, data='data'):
             i = json.loads(db[item_key])
         except KeyError:
             return None
-    return i['data']
+    return i[data]
 
 
 def _translate_zotero_uri(uri):
@@ -229,23 +284,17 @@ def _process_citations(txt):
     return str(soup)
 
 
-@app.route('/file/<library_id>/<item_key>')
+@app.route('/raw/<library_id>/<item_key>')
 def blob(library_id, item_key):
     item = _get_item(library_id, item_key)
+    if item['itemType'] != 'attachment':
+        abort(404)
     dir = os.path.join(app.data_path, item_key)
     filepath = os.path.join(dir, item['filename'])
     return send_file(filepath, mimetype=item['contentType'])
 
 
-@app.route('/note/<library_id>/<item_key>')
-def note(library_id, item_key):
-
-    data = _get_item(library_id, item_key)
-    if not data:
-        abort(404)
-    if not data.get('note', None):
-        abort(404)
-
+def _note(library_id, data):
     content = data['note']
     m = re.search(r'<h1>(.*?)</h1>', data['note'])
     if m:
@@ -255,28 +304,46 @@ def note(library_id, item_key):
         data['title'] = 'Note'
     del data['note']  # don't show in the metadata table
     content = re.sub(r'data-attachment-key="(.*?)"',
-                     'src="/file/{}/\g<1>" class="img-fluid"'.format(library_id), content)
+                     'src="/raw/{}/\g<1>" class="img-fluid"'.format(library_id), content)
     content = _process_citations(content)
-
-    return render_template('base.html',
-                           content=Markup(content),
-                           title=data['title'],
-                           )
+    return content, data
 
 
-@app.route('/item/<library_id>/<item_key>')
-def show_item(library_id, item_key):
-    """Show a table presenting the metadata for a single item."""
+@app.route('/view/<library_id>/<item_key>')
+def html(library_id, item_key):
+
     data = _get_item(library_id, item_key)
     if not data:
-        data = {"key": item_key, "description": "Item not in database"}
-    table_attributes = {"style": "width:100%", "class": "table"}
-    content = json2table.convert(data, table_attributes=table_attributes)
-
+        abort(404)
+    if data.get('note', None):
+        content, data = _note(library_id, data)
+        title = data.get('title', '[untitled]')
+    elif data['itemType'] == 'collection':
+        content, title = _collection(library_id, item_key, data)
+    else:
+        title = data.get('title', '[untitled]')
+        table_attributes = {"style": "width:100%", "class": "table"}
+        content = json2table.convert(data, table_attributes=table_attributes)
+    
     return render_template('base.html',
                            content=Markup(content),
-                           title='Item {}'.format(data.get('title', ''))
+                           title=title,
                            )
+
+
+# @app.route('/item/<library_id>/<item_key>')
+# def show_item(library_id, item_key):
+#     """Show a table presenting the metadata for a single item."""
+#     data = _get_item(library_id, item_key)
+#     if not data:
+#         data = {"key": item_key, "description": "Item not in database"}
+#     table_attributes = {"style": "width:100%", "class": "table"}
+#     content = json2table.convert(data, table_attributes=table_attributes)
+
+#     return render_template('base.html',
+#                            content=Markup(content),
+#                            title='Item {}'.format(data.get('title', ''))
+#                            )
 
 
 @app.route('/sync')
@@ -298,16 +365,71 @@ def sync():
 @app.route('/sync/<library_id>/<item_key>')
 def sync_item(library_id, item_key):
     """Synchronize a single item."""
-    r = _sync_item(library_id, item_key)
-    return redirect(url_for('show_item', library_id=library_id, item_key=item_key))
+    item_type = request.args.get('item_type', 'item')
+    r = _sync_item(library_id, item_key, item_type=item_type)
+    return redirect(url_for('html', library_id=library_id, item_key=item_key))
 
-@register_breadcrumb(app, '.', 'home')
 @app.route('/')
 def index():
     """Home page of the application."""
-    content = markdown.markdown(app.config['DESCRIPTION'])
-    return render_template('base.html', content=Markup(content))
 
+    out = [markdown.markdown(app.config['DESCRIPTION'])]
+    # libraries = app.config['LIBRARY'].items()
+    # out.append('<h2>Libraries</h2>')
+    # out.append('<ul>')
+    # for library, data in libraries:
+    #     out.append('<li><a href="{}">{}</a></li>'.format(
+    #         url_for('tree',
+    #                 library_id=library), data['title']
+    #     ))
+    # out.append('</ul>')
+
+    return render_template('base.html',
+                           content=Markup(' '.join(out)),
+                           title='Home'
+                           )
+
+
+def _a(link, title):
+    return '<a class="text-break" href="{}">{}</a>'.format(link, title)
+
+
+def _collection(library_id, collection_id, collection_data):
+    data = _get_collections(library_id)
+    items = data[collection_id]
+    links = list()
+
+    collection_title = collection_data['name']
+
+    if collection_data.get('parentCollection', None):
+        link = url_for('html', library_id=library_id,
+                       item_key=collection_data['parentCollection'])
+        parent_data = _get_item(library_id, collection_data['parentCollection'])
+        icon = '<i class="bi bi-folder2-open h2"></i>'
+        title = parent_data['name']
+        links.append('<tr><td>{}</td><td>{}</td></tr>'.format(icon, _a(link, title)))
+        
+    for item in items:
+        item_data = _get_item(library_id, item)
+        try:
+            title = _get_item(library_id, item, data='bib')
+        except KeyError:
+            title = item_data.get('title', item_data.get('name', '[Untitled]'))
+        link = url_for('html', library_id=library_id, item_key=item)
+        icon = '<i class="bi bi-file-earmark h2"></i>'
+        if item_data.get('itemType', '') == 'collection':
+            icon = '<i class="bi bi-folder h2"></i>'
+        
+        description = item_data.get('abstractNote', '')
+        
+        links.append('<tr><td><div>{}</div></td><td>{}<p class="mt-3">{}</p></td></tr>'.format(icon, _a(link, title), description))
+    
+    content = ''
+    if links:
+        content = '<table class="table table-hover">' + \
+            ''.join(
+                links) + '</table>'
+    return content, collection_title
 
 @app.route('/help', methods=['GET'])
 def help():
@@ -337,11 +459,12 @@ def help():
     for rule, methods, docs in zip(rules, rule_methods, rule_docs):
         if rule.rule.startswith('/static/'):
             continue
-        if '<' in rule.rule:
-            rulename = escape(rule.rule)
-        else:
-            rulename = '<a href="{}">{}</a>'.format(
-                url_for(rule.endpoint), rule.rule)
+        rulename = escape(rule.rule)
+        # if '<' in rule.rule:
+        #     rulename = escape(rule.rule)
+        # else:
+        #     rulename = '<a href="{}">{}</a>'.format(
+        #         url_for(rule.endpoint), rule.rule)
         out.append(
             '<tr><td>{}</td><td>{}</td><td>{}</td></tr>'.format(rulename, methods, docs or ''))
     out.append('</table>')
