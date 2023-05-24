@@ -20,32 +20,6 @@ HELP = """
 """
 
 
-@app.route('/cluster_tags')
-def cluster_tags_select_library():
-    """Main page of the tag grouping/clustering tool, which allows the user
-    to apply a category tag to all items or annotations that are tagged with
-    sub-themes of that tag. Present a list of Zotero group libraries configured
-    for use by the application.
-    """
-    title = 'Tag grouping tool'
-    help = 'Please select a library.'
-    libraries = app.config['LIBRARY'].items()
-    out = []
-    out.append('<ul>')
-    for library, data in libraries:
-        out.append('<li><a href="{}">{}</a></li>'.format(
-            url_for('tag_grouper_form',
-                    library_id=library), data['title']
-        ))
-    out.append('</ul>')
-
-    return render_template('base.html',
-                           content=Markup(' '.join(out)),
-                           help=help,
-                           title=title
-                           )
-
-
 def _apply_category_tag(library_id, tags_group, target):
     """Apply a tag to all library items matching any of the tags in the list
     `tags_group`, then synchronize changes to the local database."""

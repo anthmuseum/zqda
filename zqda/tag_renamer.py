@@ -5,30 +5,6 @@ from markupsafe import Markup
 from pyzotero import zotero
 
 
-@app.route('/rename_tags/')
-def rename_tags_select_library():
-    """Main page of the tag renaming tool viewer, which allows for bulk
-    renaming of tags in a Zotero group library. Present a list of Zotero group 
-    libraries configured for use by the application."""
-    title = 'Tag renaming tool'
-    help = 'Please select a library.'
-    libraries = app.config['LIBRARY'].items()
-    out = []
-    out.append('<ul>')
-    for library, data in libraries:
-        out.append('<li><a href="{}">{}</a></li>'.format(
-            url_for('tag_rename_form',
-                    library_id=library), data['title']
-        ))
-    out.append('</ul>')
-
-    return render_template('base.html',
-                           content=Markup(' '.join(out)),
-                           help=help,
-                           title=title
-                           )
-
-
 def _rename(library_id, src_tag, target_tag):
     """Update all items in the Zotero library that have been tagged with 
     `src_tag`, replacing the value of `src_tag` with the value of `target_tag`.

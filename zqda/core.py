@@ -154,18 +154,6 @@ def _sync_item(library_id, item_key, item_type='item'):
     return "Updated!"
 
 
-@app.route('/tags/<library_id>')
-def show_tags(library_id):
-    """List all the tags in a library."""
-    data = _get_tags(library_id)
-    table_attributes = {"style": "width:100%", "class": "table"}
-    return render_template('base.html',
-                           content=Markup(json2table.convert(
-                               data, table_attributes=table_attributes)),
-                           title=data.get('title', '')
-                           )
-
-
 def _get_collections(library_id):
     """Retrieve collections from the stored item metadata for a library.
     Although the Zotero API can return a list of collections, this may be
