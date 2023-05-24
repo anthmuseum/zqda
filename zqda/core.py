@@ -209,6 +209,29 @@ def _get_tags(library_id):
 
     return tags
 
+def _get_children(library_id):
+    """Update the list of children for each item based on parentItem.
+    """
+    relations = {}
+
+    item_cache = os.path.join(
+        app.data_path, 'items_{}.db'.format(library_id))
+
+    if not os.path.exists(item_cache):
+        return relations
+
+    with dbm.open(item_cache, 'r') as db:
+        for key in db.keys():
+            i = json.loads(db[key])
+            parentItem = i['data'].get('parentItem', None)
+            if not parentItem:
+                continue
+            if not parentItem in relations:
+                relations[parentItem] = list()
+            relations[parentItem].append(i['data']['key'])
+
+    return relations
+
 
 def _get_items(library_id):
     """Retrieve the item metadata from the database associated with a group
@@ -281,22 +304,25 @@ def blob(library_id, item_key):
         abort(404)
     dir = os.path.join(app.data_path, item_key)
     filepath = os.path.join(dir, item['filename'])
+    if not os.path.exists(filepath):
+        abort(404)
     return send_file(filepath, mimetype=item['contentType'])
 
 
-def dict2table(library_id, data):
-    """Convert a dictionary to RDF triples."""
+def _dict2table(library_id, data):
+    """Convert a dictionary to tabular form."""
 
-    # process the creator fields
     for k, v in data.items():
         if k == 'creators':
             c = []
             for creator in v:  # list of dicts
                 if creator.get('name', None):  # single name field
-                    c.append(creator)
+                    c.append('{} ({})'.format(
+                        creator['name'], creator.get('creatorType')))
                 else:  # has lastName and firstName fields
-                    c.append('{}, {}'.format(creator.get('lastName', ''),
-                                              creator.get('firstName', '')
+                    c.append('{}, {} ({})'.format(creator.get('lastName', ''),
+                                              creator.get('firstName', ''),
+                                              creator.get('creatorType')
                                               ))
             data[k] = c
         elif k == 'tags':  # list of {'tag': tagName} dicts
@@ -306,6 +332,8 @@ def dict2table(library_id, data):
             c = []
             for i in v:
                 collection_data = _get_item(library_id, i)
+                if not collection_data:
+                    continue
                 name = collection_data['name']
                 c.append(_a(url_for('html', library_id=library_id, item_key=i), name))
             data[k] = c
@@ -313,11 +341,19 @@ def dict2table(library_id, data):
             data[k] = _a(v, v)
         elif k == 'parentItem':
             parent_data = _get_item(library_id, v)
-            title = parent_data['title']
+            title = parent_data.get('title', '[untitled]')
             data[k] = _a(v, title)
+        elif k == 'childItem':
+            c = []
+            for child in v:
+                child_data = _get_item(library_id, child)
+                title = child_data.get('title', child_data.get('name', child_data.get('filename', child_data['itemType'])))
+                c.append(_a(child, title))
+            data[k] = c
 
-    if 'relations' in data.keys():
-        del data['relations']
+    for k in ('relations', 'annotationType', 'annotationColor', 'annotationSortIndex', 'annotationPosition'):
+        if k in data.keys():
+            del data[k]
 
     table_attributes = {"style": "width:100%",
           "class": "table table-sm mt-4"}
@@ -325,6 +361,8 @@ def dict2table(library_id, data):
     j = j.replace('<ul>', '<ul class="mb-0 ms-0 ps-0" style="list-style-type:none">')
     return j
 
+def _hr():
+    return '<hr class="mt-5 border border-primary border-3 opacity-75"">'
 
 def _note(library_id, data):
     content = data['note']
@@ -339,9 +377,12 @@ def _note(library_id, data):
                      'src="/raw/{}/\g<1>" class="img-fluid"'.format(library_id), content)
     content = _process_citations(content)
 
-    metadata = dict2table(library_id, data)
-    return content + '<hr class="mt-5 border border-primary border-3 opacity-75"">' + metadata, data
+    metadata = _dict2table(library_id, data)
+    return content + _hr() + metadata, data
 
+
+def _attachments(library_id, item_key):
+    return
 
 @app.route('/view/<library_id>/<item_key>')
 def html(library_id, item_key):
@@ -361,8 +402,10 @@ def html(library_id, item_key):
         content, title = _collection(library_id, item_key, data)
     else:
         title = data.get('title', '[untitled]')
-        content = dict2table(library_id, data)
-    
+        children = _get_children(library_id)
+        data['childItem'] = children.get(item_key, [])
+        content = _dict2table(library_id, data)
+
     return render_template('base.html',
                            content=Markup(content),
                            title=title,
@@ -400,9 +443,10 @@ def index():
     # libraries = app.config['LIBRARY'].items()
     # out.append('<h2>Libraries</h2>')
     # out.append('<ul>')
+    # #FIXME: We need a list of top-level collections
     # for library, data in libraries:
     #     out.append('<li><a href="{}">{}</a></li>'.format(
-    #         url_for('tree',
+    #         url_for('view',
     #                 library_id=library), data['title']
     #     ))
     # out.append('</ul>')
@@ -452,7 +496,7 @@ def _collection(library_id, collection_id, collection_data):
 
     content = ''
     if links:
-        content = '<table class="table table-hover">' + \
+        content = '<table class="table">' + \
             ''.join(links) + '</table>'
     return content, collection_title
 
@@ -481,7 +525,7 @@ def tag_list(library_id, tag_name):
     
     content = ''
     if links:
-        content = '<table class="table table-hover">' + \
+        content = '<table class="table">' + \
             ''.join(links) + '</table>'
 
     return render_template('base.html', content=Markup(content), title=tag_name)
