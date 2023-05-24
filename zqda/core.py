@@ -274,6 +274,8 @@ def _process_citations(txt):
 
 @app.route('/raw/<library_id>/<item_key>')
 def blob(library_id, item_key):
+    """Download a binary attachment. This may be an item
+    attachment or an inline image attached to a note."""
     item = _get_item(library_id, item_key)
     if item['itemType'] != 'attachment':
         abort(404)
@@ -334,6 +336,11 @@ def _note(library_id, data):
 
 @app.route('/view/<library_id>/<item_key>')
 def html(library_id, item_key):
+    """View an html representation of a library item. For most items this
+    will be a table showing item metadata; for a note the full content will
+    be shown with the metadata listed below; and for a collection a list
+    of items, sub-collections, and parent collection will be presented in 
+    directory index format."""
 
     data = _get_item(library_id, item_key)
     if not data:
@@ -442,6 +449,8 @@ def _collection(library_id, collection_id, collection_data):
 
 @app.route('/tag/<library_id>/<tag_name>')
 def tag_list(library_id, tag_name):
+    """View a list of resources in the library associated with `tag_name`.
+    """
     all_tags = _get_tags(library_id)
     items = all_tags[tag_name]
     links = []
