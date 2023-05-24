@@ -21,28 +21,6 @@ def _get_parent_title(library_id, parentItem):
     return title
 
 
-@app.route('/annotations')
-def tag_annotations_select_library():
-    """Main page of the annotation viewer, which presents a report of
-    PDF annotations in a Zotero library by tag. Present a list of Zotero group
-    libraries configured for use by the application."""
-    title = 'Annotation viewer'
-    help = 'Please select a library.'
-    libraries = app.config['LIBRARY'].items()
-    out = []
-    out.append('<ul>')
-    for library, data in libraries:
-        out.append('<li><a href="{}">{}</a></li>'.format(
-            url_for('show_annotations_tag_select', library_id=library), data['title']
-        ))
-    out.append('</ul>')
-
-    return render_template('base.html', 
-                           content=Markup(' '.join(out)),
-                           help=help,
-                           title=title
-                           )
-
 @app.route('/annotations/<library_id>')
 def show_annotations_tag_select(library_id):
     """Show a list of tags associated with annotations in the selected
