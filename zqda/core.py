@@ -294,6 +294,39 @@ def blob(library_id, item_key):
     return send_file(filepath, mimetype=item['contentType'])
 
 
+def dict2table(library_id, data):
+    """Convert a dictionary to RDF triples."""
+
+    # process the creator fields
+    for k, v in data.items():
+        if k == 'creators':
+            c = []
+            for creator in v:  # list of dicts
+                if creator.get('name', None):  # single name field
+                    c.append(creator)
+                else:  # has lastName and firstName fields
+                    c.append('{}, {}'.format(creator.get('lastName', ''),
+                                              creator.get('firstName', '')
+                                              ))
+            data[k] = c
+        elif k == 'tags':  # list of {'tag': tagName} dicts
+            data[k] = [
+                _a(url_for('tag_list', library_id=library_id, tag_name=t['tag']), t['tag']) for t in v]
+        elif k == 'collections':  # list of itemKeys
+            c = []
+            for i in v:
+                collection_data = _get_item(library_id, i)
+                name = collection_data['name']
+                c.append(_a(url_for('html', library_id=library_id, item_key=i), name))
+            data[k] = c
+        elif k == 'url':
+            data[k] = _a(v, v)
+
+    table_attributes = {"style": "width:100%",
+          "class": "table table-bordered mt-5"}
+    return json2table.convert(data, table_attributes=table_attributes)
+
+
 def _note(library_id, data):
     content = data['note']
     m = re.search(r'<h1>(.*?)</h1>', data['note'])
@@ -306,7 +339,9 @@ def _note(library_id, data):
     content = re.sub(r'data-attachment-key="(.*?)"',
                      'src="/raw/{}/\g<1>" class="img-fluid"'.format(library_id), content)
     content = _process_citations(content)
-    return content, data
+
+    metadata = dict2table(library_id, data)
+    return content + metadata, data
 
 
 @app.route('/view/<library_id>/<item_key>')
@@ -322,28 +357,12 @@ def html(library_id, item_key):
         content, title = _collection(library_id, item_key, data)
     else:
         title = data.get('title', '[untitled]')
-        table_attributes = {"style": "width:100%", "class": "table"}
-        content = json2table.convert(data, table_attributes=table_attributes)
+        content = dict2table(library_id, data)
     
     return render_template('base.html',
                            content=Markup(content),
                            title=title,
                            )
-
-
-# @app.route('/item/<library_id>/<item_key>')
-# def show_item(library_id, item_key):
-#     """Show a table presenting the metadata for a single item."""
-#     data = _get_item(library_id, item_key)
-#     if not data:
-#         data = {"key": item_key, "description": "Item not in database"}
-#     table_attributes = {"style": "width:100%", "class": "table"}
-#     content = json2table.convert(data, table_attributes=table_attributes)
-
-#     return render_template('base.html',
-#                            content=Markup(content),
-#                            title='Item {}'.format(data.get('title', ''))
-#                            )
 
 
 @app.route('/sync')
@@ -404,12 +423,42 @@ def _collection(library_id, collection_id, collection_data):
     if collection_data.get('parentCollection', None):
         link = url_for('html', library_id=library_id,
                        item_key=collection_data['parentCollection'])
-        parent_data = _get_item(library_id, collection_data['parentCollection'])
+        parent_data = _get_item(
+            library_id, collection_data['parentCollection'])
         icon = '<i class="bi bi-folder2-open h2"></i>'
         title = parent_data['name']
-        links.append('<tr><td>{}</td><td>{}</td></tr>'.format(icon, _a(link, title)))
-        
+        links.append(
+            '<tr><td>{}</td><td>{}</td></tr>'.format(icon, _a(link, title)))
+
     for item in items:
+        item_data = _get_item(library_id, item)
+        try:
+            title = _get_item(library_id, item, data='bib')
+        except KeyError:
+            title = item_data.get('title', item_data.get('name', '[Untitled]'))
+        link = url_for('html', library_id=library_id, item_key=item)
+        icon = '<i class="bi bi-file-earmark h2"></i>'
+        if item_data.get('itemType', '') == 'collection':
+            icon = '<i class="bi bi-folder h2"></i>'
+
+        description = item_data.get('abstractNote', '')
+
+        links.append('<tr><td><div>{}</div></td><td>{}<p class="mt-3">{}</p></td></tr>'.format(
+            icon, _a(link, title), description))
+
+    content = ''
+    if links:
+        content = '<table class="table table-hover">' + \
+            ''.join(links) + '</table>'
+    return content, collection_title
+
+@app.route('/tag/<library_id>/<tag_name>')
+def tag_list(library_id, tag_name):
+    all_tags = _get_tags(library_id)
+    items = all_tags[tag_name]
+    links = []
+    for item in items:
+        
         item_data = _get_item(library_id, item)
         try:
             title = _get_item(library_id, item, data='bib')
@@ -427,9 +476,9 @@ def _collection(library_id, collection_id, collection_data):
     content = ''
     if links:
         content = '<table class="table table-hover">' + \
-            ''.join(
-                links) + '</table>'
-    return content, collection_title
+            ''.join(links) + '</table>'
+
+    return render_template('base.html', content=Markup(content), title=tag_name)
 
 @app.route('/help', methods=['GET'])
 def help():
