@@ -261,7 +261,7 @@ def _translate_zotero_uri(uri):
     if m:
         library = m.group(1)
         key = m.group(2)
-        return '/{}/item/{}'.format(library, key)
+        return '/view/{}/{}'.format(library, key)
     return uri
 
 
