@@ -200,8 +200,7 @@ def _load_attachment(zot, item):
         os.makedirs(dir)
     try:
         blob = zot.file(key)
-    except zotero_errors.ResourceNotFound as e:
-        print(e)
+    except:
         return
     with open(filepath, 'wb') as f:
         f.write(blob)
@@ -337,7 +336,7 @@ def blob(library_id, item_key):
     mimetype = item['contentType']
     if mimetype == 'text/html':
         mimetype = 'application/zip'
-    if not app.config['LIBRARY'][library_id]['allow_downloads'].get(True, False):
+    if not app.config['LIBRARY'][library_id].get('allow_downloads', False):
         # always allow images embedded in notes
         if item['linkmode'] != 'embedded_image' and _check_key(library_id) is False:
             abort(401)
