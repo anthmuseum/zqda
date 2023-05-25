@@ -156,12 +156,12 @@ def _sync_item(library_id, item_key, item_type='item'):
 
 
 # FIXME: cache output
-def _get_collections(library_id, top=False):
+def _get_collections(library_id):
     """Retrieve collections from the stored item metadata for a library.
     Although the Zotero API can return a list of collections, this may be
     faster. 
     """
-    collections = {}
+    collections = {'top':[]}
 
     item_cache = os.path.join(
         app.data_path, 'items_{}.db'.format(library_id))
@@ -172,14 +172,13 @@ def _get_collections(library_id, top=False):
     with dbm.open(item_cache, 'r') as db:
         for key in db.keys():
             i = json.loads(db[key])
-            if top and not i['data']['itemType'] == 'collection':
-                continue
-            parent_collections = i['data'].get('collections', []) 
+            item_collections = i['data'].get('collections', []) 
             if i['data'].get('parentCollection', None):
-                if top:
-                    continue
-                parent_collections.append(i['data']['parentCollection'])
-            for c in parent_collections:
+                item_collections.append(i['data']['parentCollection'])
+            if len(item_collections) == 0 and not i['data'].get('parentItem', None):
+                item_collections.append('top')
+
+            for c in item_collections:
                 if not c in collections:
                     collections[c] = list()
                 collections[c].append(key)
@@ -189,13 +188,16 @@ def _get_collections(library_id, top=False):
 
 def _load_attachment(zot, item):
     key = item['data']['key']
+    if item['data'].get('linkMode') in ('linked_file', 'linked_url'):
+        return
     dir = os.path.join(app.data_path, key)
-    filepath = os.path.join(dir, item['data']['filename'])
+    # Note this will actually be a zip file if it ends with .html
+    filename = item['data']['filename']
+    filepath = os.path.join(dir, filename)
     if os.path.exists(filepath):
         return
     if not os.path.exists(dir):
         os.makedirs(dir)
-
     try:
         blob = zot.file(key)
     except zotero_errors.ResourceNotFound as e:
@@ -203,7 +205,7 @@ def _load_attachment(zot, item):
         return
     with open(filepath, 'wb') as f:
         f.write(blob)
-        
+
 # FIXME: cache output
 def _get_tags(library_id):
     """Retrieve tags from the stored item metadata for a library.
@@ -332,7 +334,15 @@ def blob(library_id, item_key):
     filepath = os.path.join(dir, item['filename'])
     if not os.path.exists(filepath):
         abort(404)
-    return send_file(filepath, mimetype=item['contentType'])
+    mimetype = item['contentType']
+    if mimetype == 'text/html':
+        mimetype = 'application/zip'
+    if not app.config['LIBRARY'][library_id]['allow_downloads'].get(True, False):
+        # always allow images embedded in notes
+        if item['linkmode'] != 'embedded_image' and _check_key(library_id) is False:
+            abort(401)
+
+    return send_file(filepath, mimetype)
 
 
 def _dict2table(library_id, data):
@@ -377,6 +387,10 @@ def _dict2table(library_id, data):
                 c.append(_a(child, title))
             data[k] = c
 
+        elif k == 'filename':
+            url = url_for('blob', library_id=library_id, item_key=data['key'])
+            data[k] = _a(url, v)
+
     for k in ('relations', 'annotationType', 'annotationColor', 'annotationSortIndex', 'annotationPosition'):
         if k in data.keys():
             del data[k]
@@ -407,15 +421,20 @@ def _note(library_id, data):
     return content + _hr() + metadata, data
 
 
-
-
 @app.route('/view/<library_id>')
 def library_view(library_id):
     """View an html representation of the library."""
     description = app.config['LIBRARY'][library_id]['description']
     title = app.config['LIBRARY'][library_id]['title']
-    collections = _get_collections(library_id, top=True)
-    content = collections
+    collections = _get_collections(library_id)
+    items = collections['top']
+    links = []
+    for item in items:
+        links.append(_link(library_id, item))
+
+    content = '<p>{}</p>{}<table class="table">{}</table>'.format(
+        description, _hr(), ''.join(sorted(links)))
+
     return render_template('base.html',
                            content=Markup(content),
                            title=title,
@@ -477,16 +496,22 @@ def index():
     """Home page of the application."""
 
     out = [markdown.markdown(app.config['DESCRIPTION'])]
-    # libraries = app.config['LIBRARY'].items()
-    # out.append('<h2>Libraries</h2>')
-    # out.append('<ul>')
-    # #FIXME: We need a list of top-level collections
-    # for library, data in libraries:
-    #     out.append('<li><a href="{}">{}</a></li>'.format(
-    #         url_for('view',
-    #                 library_id=library), data['title']
-    #     ))
-    # out.append('</ul>')
+    libraries = app.config['LIBRARY'].items()
+    out.append('<h2>Libraries</h2>')
+    out.append('<ul class="list-group">')
+    #FIXME: We need a list of top-level collections
+    for library, data in libraries:
+        url = url_for('library_view', library_id=library)
+        out.append("""
+        <li class="list-group-item">
+        <div class="ms-2 me-auto">
+        <div class="fw-bold">{}</div>
+        {}
+        </div>
+        </li>""".format(
+            _a(url, data['title']), data['description']
+        ))
+    out.append('</ul>')
 
     return render_template('base.html',
                            content=Markup(' '.join(out)),
@@ -496,6 +521,27 @@ def index():
 
 def _a(link, title):
     return '<a class="text-break" href="{}">{}</a>'.format(link, title)
+
+def _link(library_id, item_key):
+        item_data = _get_item(library_id, item_key)
+        title = item_data.get('title', item_data.get('name', item_data.get('filename', item_data.get('itemType', 'Untitled'))))
+        link = url_for('html', library_id=library_id, item_key=item_key)
+        icon = '<i class="bi bi-file-earmark h2"></i>'
+        if item_data.get('itemType', '') == 'collection':
+            icon = '<i class="bi bi-folder h2"></i>'
+        if item_data.get('itemType', '') == 'note':
+            icon = '<i class="bi bi-journal-text h2"></i>'
+        if item_data.get('itemType', '') == 'annotation':
+            parentItem = _get_item(library_id, item_data['parentItem'])
+            title = ': '.join([title, parentItem.get('title')])
+            icon = '<i class="bi bi-pencil-square h2"></i>'
+                                   
+        description = item_data.get('abstractNote', item_data.get('annotationText', item_data.get('note', '')))
+        description = BeautifulSoup(description, "html.parser").text
+
+        return '<!--{} {} --><tr><td><div>{}</div></td><td>{}<p class="mt-3">{}</p></td></tr>'.format(
+            item_data.get('itemType', 'document'), title, 
+            icon, _a(link, title), description)
 
 
 def _collection(library_id, collection_id, collection_data):
@@ -510,31 +556,15 @@ def _collection(library_id, collection_id, collection_data):
                        item_key=collection_data['parentCollection'])
         parent_data = _get_item(
             library_id, collection_data['parentCollection'])
-        icon = '<i class="bi bi-folder2-open h2"></i>'
+        icon = '<i class="bi bi-arrow-return-left h2"></i>'
         title = parent_data['name']
         links.append(
-            '<tr><td>{}</td><td>{}</td></tr>'.format(icon, _a(link, title)))
+            '<!-- _up --><tr><td>{}</td><td>{}</td></tr>'.format(icon, _a(link, title)))
 
     for item in items:
-        item_data = _get_item(library_id, item)
-        try:
-            title = _get_item(library_id, item, data='bib')
-        except KeyError:
-            title = item_data.get('title', item_data.get('name', '[Untitled]'))
-        link = url_for('html', library_id=library_id, item_key=item)
-        icon = '<i class="bi bi-file-earmark h2"></i>'
-        if item_data.get('itemType', '') == 'collection':
-            icon = '<i class="bi bi-folder h2"></i>'
+        links.append(_link(library_id, item))
 
-        description = item_data.get('abstractNote', '')
-
-        links.append('<tr><td><div>{}</div></td><td>{}<p class="mt-3">{}</p></td></tr>'.format(
-            icon, _a(link, title), description))
-
-    content = ''
-    if links:
-        content = '<table class="table">' + \
-            ''.join(links) + '</table>'
+    content = '<table class="table">' + ''.join(sorted(links)) + '</table>'
     return content, collection_title
 
 @app.route('/tag/<library_id>/<tag_name>')
@@ -544,26 +574,12 @@ def tag_list(library_id, tag_name):
     all_tags = _get_tags(library_id)
     items = all_tags[tag_name]
     links = []
-    for item in items:
+    for item_key in items:
         
-        item_data = _get_item(library_id, item)
-        try:
-            title = _get_item(library_id, item, data='bib')
-        except KeyError:
-            title = item_data.get('title', item_data.get('name', '[Untitled]'))
-        link = url_for('html', library_id=library_id, item_key=item)
-        icon = '<i class="bi bi-file-earmark h2"></i>'
-        if item_data.get('itemType', '') == 'collection':
-            icon = '<i class="bi bi-folder h2"></i>'
-        
-        description = item_data.get('abstractNote', '')
-        
-        links.append('<tr><td><div>{}</div></td><td>{}<p class="mt-3">{}</p></td></tr>'.format(icon, _a(link, title), description))
+        links.append(_link(library_id, item_key))
     
-    content = ''
-    if links:
-        content = '<table class="table">' + \
-            ''.join(links) + '</table>'
+    content = '<table class="table">' + \
+            ''.join(sorted(links)) + '</table>'
 
     return render_template('base.html', content=Markup(content), title=tag_name)
 
@@ -573,6 +589,9 @@ def help():
     docstrings.
     """
 
+    out = []
+    out.append("""<p>This site provides public access to digital resources managed in <a href="https://zotero.org">Zotero</a> libraries, along with experimental tools for managing those resources for qualitative data analysis purposes. The available access routes are listed below.</p>
+    """)
     rules = list(app.url_map.iter_rules())
     rules = sorted(rules, key=operator.attrgetter('rule'))
     rule_methods = [
@@ -588,7 +607,7 @@ def help():
             rule_docs.append(o.__doc__)
         else:
             rule_docs.append(app.view_functions[rule.endpoint].__doc__)
-    out = []
+
     out.append('<table class="table">')
     out.append('<tr><th>Rule</th><th>Methods</th><th>Description</th></tr>')
 
