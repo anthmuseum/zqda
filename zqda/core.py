@@ -66,7 +66,8 @@ def _check_key(library_id):
             return True
     return False
 
-
+# FIXME: Use json instead of pickle, so we can update manually if needed
+# e.g., to resync from a specific version
 def _sync_items(library_id):
     """Synchronize all items in a single group library. Store item data
     for updated items in the file "items_LIBRARY-ID.db" within the application
@@ -338,7 +339,7 @@ def blob(library_id, item_key):
         mimetype = 'application/zip'
     if not app.config['LIBRARY'][library_id].get('allow_downloads', False):
         # always allow images embedded in notes
-        if item['linkmode'] != 'embedded_image' and _check_key(library_id) is False:
+        if item['linkMode'] != 'embedded_image' and _check_key(library_id) is False:
             abort(401)
 
     return send_file(filepath, mimetype)
@@ -428,6 +429,11 @@ def library_view(library_id):
     collections = _get_collections(library_id)
     items = collections['top']
     links = []
+
+    icon = '<i class="bi bi-arrow-return-left h2"></i>'
+    links.append(
+        '<!-- _up --><tr><td>{}</td><td>{}</td></tr>'.format(icon, _a(url_for('index'), 'Top')))
+
     for item in items:
         links.append(_link(library_id, item))
 
@@ -494,26 +500,20 @@ def sync_item(library_id, item_key):
 def index():
     """Home page of the application."""
 
-    out = [markdown.markdown(app.config['DESCRIPTION'])]
+    # out = [markdown.markdown(app.config['DESCRIPTION'])]
     libraries = app.config['LIBRARY'].items()
-    out.append('<h2>Libraries</h2>')
-    out.append('<ul class="list-group">')
-    #FIXME: We need a list of top-level collections
+    links = []
+    icon = '<i class="bi bi-folder h2"></i>'
+
     for library, data in libraries:
         url = url_for('library_view', library_id=library)
-        out.append("""
-        <li class="list-group-item">
-        <div class="ms-2 me-auto">
-        <div class="fw-bold">{}</div>
-        {}
-        </div>
-        </li>""".format(
-            _a(url, data['title']), data['description']
-        ))
-    out.append('</ul>')
-
+        links.append('<tr><td><div>{}</div></td><td>{}<p class="mt-3">{}</p></td></tr>'.format(
+            icon, _a(url, data['title']), data['description']))
+            
+    content = '<table class="table">' + ''.join(sorted(links)) + '</table>'
+    
     return render_template('base.html',
-                           content=Markup(' '.join(out)),
+                           content=Markup(content),
                            title='Home'
                            )
 
