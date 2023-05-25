@@ -448,8 +448,8 @@ def _hr():
 def _note(library_id, data):
     content = data['note']
     m = re.search(r'<h1>(.*?)</h1>', data['note'])
-    if m:
-        data['title'] = m.group(1)
+    if m: 
+        data['title'] = BeautifulSoup(m.group(1), "html.parser").text
         content = re.sub(r'<h1>(.*?)</h1>', '', content, count=1)
     else:
         data['title'] = 'Note'
@@ -582,6 +582,9 @@ def _link(library_id, item_key):
                                    
         description = item_data.get('abstractNote', item_data.get('annotationText', item_data.get('note', '')))
         description = BeautifulSoup(description, "html.parser").text
+        description_trunc = ' '.join(description.split(" ")[:200])
+        if description_trunc != description:
+            description = description_trunc + '...'
 
         return '<!--{} {} --><tr><td><div>{}</div></td><td>{}<p class="mt-3">{}</p></td></tr>'.format(
             item_data.get('itemType', 'document'), title, 
