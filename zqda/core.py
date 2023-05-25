@@ -635,4 +635,4 @@ def help():
     out.append('</table>')
 
     content = ' '.join(out)
-    return render_template('base.html', content=Markup(content))
+    return render_template('base.html', content=Markup(content), title='Help')
