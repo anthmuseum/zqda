@@ -154,7 +154,9 @@ def _sync_item(library_id, item_key, item_type='item'):
     return "Updated!"
 
 
-def _get_collections(library_id):
+
+# FIXME: cache output
+def _get_collections(library_id, top=False):
     """Retrieve collections from the stored item metadata for a library.
     Although the Zotero API can return a list of collections, this may be
     faster. 
@@ -170,8 +172,12 @@ def _get_collections(library_id):
     with dbm.open(item_cache, 'r') as db:
         for key in db.keys():
             i = json.loads(db[key])
+            if top and not i['data']['itemType'] == 'collection':
+                continue
             parent_collections = i['data'].get('collections', []) 
             if i['data'].get('parentCollection', None):
+                if top:
+                    continue
                 parent_collections.append(i['data']['parentCollection'])
             for c in parent_collections:
                 if not c in collections:
@@ -181,6 +187,24 @@ def _get_collections(library_id):
     return collections
 
 
+def _load_attachment(zot, item):
+    key = item['data']['key']
+    dir = os.path.join(app.data_path, key)
+    filepath = os.path.join(dir, item['data']['filename'])
+    if os.path.exists(filepath):
+        return
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+
+    try:
+        blob = zot.file(key)
+    except zotero_errors.ResourceNotFound as e:
+        print(e)
+        return
+    with open(filepath, 'wb') as f:
+        f.write(blob)
+        
+# FIXME: cache output
 def _get_tags(library_id):
     """Retrieve tags from the stored item metadata for a library.
     Although the Zotero API can return a list of tags, if there is a large
@@ -209,6 +233,8 @@ def _get_tags(library_id):
 
     return tags
 
+
+# FIXME: cache output
 def _get_children(library_id):
     """Update the list of children for each item based on parentItem.
     """
@@ -381,8 +407,19 @@ def _note(library_id, data):
     return content + _hr() + metadata, data
 
 
-def _attachments(library_id, item_key):
-    return
+
+
+@app.route('/view/<library_id>')
+def library_view(library_id):
+    """View an html representation of the library."""
+    description = app.config['LIBRARY'][library_id]['description']
+    title = app.config['LIBRARY'][library_id]['title']
+    collections = _get_collections(library_id, top=True)
+    content = collections
+    return render_template('base.html',
+                           content=Markup(content),
+                           title=title,
+                           )    
 
 @app.route('/view/<library_id>/<item_key>')
 def html(library_id, item_key):
