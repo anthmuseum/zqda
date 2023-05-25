@@ -40,6 +40,8 @@ title = "Library title"
 description = "Library description"
 api_key = "22AB7C1D64D57EACDC12E367" # Use a real API key from zotero.org
 keys = ['key1', 'key2']
+# images embedded in notes are always allowed
+allow_downloads = false
 
 ```
 
