@@ -1,7 +1,7 @@
 <!doctype html>
 <html>
 <head>
-<title>{% block title %}{{ title }}{% endblock %} zqda</title>
+<title>{% block title %}{{ title }}{% endblock %}</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
@@ -17,6 +17,9 @@
         <a class="navbar-brand link-light" href="{{ url_for('index') }}">{{ config.TITLE }}</a>
         <ul class="navbar-nav mr-auto mt-2 mt-lg-0">
         <li class="nav-item"><a class="nav-link link-light" href="{{ url_for('help')}}">Help</a></li>
+        {% if library_id %}
+        <li class="nav-item"><a class="nav-link link-light" href="{{ url_for('login', library_id=library_id) }}">Login</a></li>
+        {% endif %}
         <li class="nav-item"><a class="nav-link link-light" href="https://github.com/mcdrc/zqda">Source code</a></li>
         </ul>
     </div>

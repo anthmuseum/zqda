@@ -26,6 +26,13 @@ def handle_exception(e):
     return render_template('base.html', content=e.description, title=e.name)
 
 
+@app.route('/login/<library_id>')
+def login(library_id):
+    if not _check_key(library_id):
+        return redirect(url_for('set_key', library_id=library_id, target='library_view'))
+    return redirect(url_for('library_view', library_id=library_id))
+
+
 @app.route('/set_key', methods=['POST', 'GET'])
 def set_key():
     """Set a password for operations on a library. This endpoint should not be
@@ -41,8 +48,6 @@ def set_key():
     if request.method == 'POST':
         if not key:
             flash("Please supply a valid password/key.", "danger")
-        elif not verified:
-            flash("Please complete the captcha.", "danger")
         else:
             r = make_response(redirect(url_for(target, library_id=library_id)))
             r.set_cookie('key', generate_password_hash(key))
@@ -424,6 +429,7 @@ def _note(library_id, data):
 @app.route('/view/<library_id>')
 def library_view(library_id):
     """View an html representation of the library."""
+
     description = app.config['LIBRARY'][library_id]['description']
     title = app.config['LIBRARY'][library_id]['title']
     collections = _get_collections(library_id)
@@ -443,6 +449,7 @@ def library_view(library_id):
     return render_template('base.html',
                            content=Markup(content),
                            title=title,
+                           library_id=library_id,
                            )    
 
 @app.route('/view/<library_id>/<item_key>')
@@ -470,6 +477,7 @@ def html(library_id, item_key):
     return render_template('base.html',
                            content=Markup(content),
                            title=title,
+                           library_id=library_id
                            )
 
 
@@ -485,7 +493,7 @@ def sync():
         out.append(r)
     return render_template('base.html',
                            content=Markup('<br>'.join(out)),
-                           title='Library synchronization'
+                           title='Library synchronization',
                            )
 
 
@@ -580,7 +588,10 @@ def tag_list(library_id, tag_name):
     content = '<table class="table">' + \
             ''.join(sorted(links)) + '</table>'
 
-    return render_template('base.html', content=Markup(content), title=tag_name)
+    return render_template('base.html', 
+                           content=Markup(content), 
+                           title=tag_name,
+                           library_id=library_id)
 
 @app.route('/help', methods=['GET'])
 def help():
