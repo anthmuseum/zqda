@@ -8,10 +8,8 @@ setup(
         'flask',
         'toml',
         'pyzotero',
-        'flask-breadcrumbs',
         'json2table',
         'markdown',
-        'flask_recaptcha'
     ],
 )
 

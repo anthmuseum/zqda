@@ -17,7 +17,16 @@ import markdown
 # https://stackoverflow.com/questions/71804258/flask-app-nameerror-name-markup-is-not-defined
 from bs4 import BeautifulSoup
 import urllib.parse
+import toml
 
+
+class Z(zotero.Zotero):
+    """Local version of pyzotero Zotero class with additional functions"""
+
+    def group(self, **kwargs):
+        """Get group data. This is not currently supported in pyzotero."""
+        query_string = "/groups/{u}"
+        return self._build_query(query_string)
 
 
 @app.errorhandler(HTTPException)
@@ -71,6 +80,31 @@ def _check_key(library_id):
             return True
     return False
 
+def _sync_library_data(library_id, api_key):
+    """Retrieve the remote metadata for the group library."""
+    # this is not wrapped by pyzotero
+    # https://api.zotero.org/groups/{library_id}/
+    # data['name'], data['description']
+    zot = Z(library_id, 'group', api_key)
+    try:
+        r = zot._retrieve_data(zot.group()).json()
+    except zotero_errors.UserNotAuthorised as e:
+        print(e)
+        return None
+    data = r.get('data', None)
+    if not data:
+        return
+    cfg = os.path.join(app.config_path, 'config.toml')
+    t = toml.load(cfg)
+    t['LIBRARY'][library_id]['title'] = data['name']
+    t['LIBRARY'][library_id]['description'] = data.get('description', ' ')
+    with open(cfg, 'w') as f:
+        toml.dump(t, f)
+    app.config.from_mapping(t)
+    return
+
+    
+
 # FIXME: Use json instead of pickle, so we can update manually if needed
 # e.g., to resync from a specific version
 def _sync_items(library_id):
@@ -84,6 +118,7 @@ def _sync_items(library_id):
     zot = zotero.Zotero(library_id, 'group', api_key)
 
     remote_ver = zot.last_modified_version()
+    library_data = _sync_library_data(library_id, api_key)
 
     pkl = os.path.join(app.data_path, 'versions.pkl')
     data = {}
@@ -96,6 +131,7 @@ def _sync_items(library_id):
 
     items = zot.everything(zot.items(since=local_ver, include='bib,data'))
     collections = zot.everything(zot.collections(since=local_ver))
+
     
     for c in collections:
         c['data']['itemType'] = 'collection'
@@ -106,7 +142,7 @@ def _sync_items(library_id):
             sub['data']['itemType'] = 'collection'
         c['data']['items'] = collection_items + subcollections
 
-    items = items + collections
+    items = items + collections #+ library_data
 
     item_cache = os.path.join(app.data_path, 'items_{}.db'.format(library_id))
 
@@ -491,6 +527,7 @@ def sync():
         out.append('Synchronizing {}...'.format(library_id))
         r = _sync_items(library_id)
         out.append(r)
+
     return render_template('base.html',
                            content=Markup('<br>'.join(out)),
                            title='Library synchronization',
