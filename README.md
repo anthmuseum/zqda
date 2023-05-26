@@ -24,11 +24,9 @@ Install using pip:
 
 `$ pip install -e git+https://github.com/mcdrc/zqda.git`
 
-A configuration file `config.toml` should be created manually in the directory ".zqda" in the user home directory. 
+A configuration file `config.toml` should be created manually in the directory "`~/.config/zqda/`. 
 
 Set the global variable `SECRET_KEY` to something secret.
-
-To use ReCaptcha, set the variables `RECAPTCHA_SITE_KEY` and `RECAPTCHA_SECRET_KEY`.
 
 For each Zotero group library, create a section in the configuration file corresponding to that library, using the mapping prefix `LIBRARY` followed by the Zotero ID for the library (this will bea seven-digit number). Also set an `api_key` with write access to that library, and a list of passwords allowing write access to the library.
 
@@ -37,12 +35,15 @@ For each Zotero group library, create a section in the configuration file corres
 [LIBRARY.0000000]
 title = "Library title"
 description = "Library description"
-api_key = "22AB7C1D64D57EACDC12E367" # Use a real API key from zotero.org
-keys = ['key1', 'key2']
+api_key = "XXXXXXXXXXXXXXXXXXXXXXXX" # Use a real API key from zotero.org
+keys = ['key1', 'key2'] # These are passkeys to give out to trusted users
+# if allow_downloads` is false, only logged-in users can download attachments
 # images embedded in notes are always allowed
 allow_downloads = false
 
 ```
+
+The library title and description will be updated using the data on the Zotero server on synchronization.
 
 ## Use
 
