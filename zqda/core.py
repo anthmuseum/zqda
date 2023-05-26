@@ -455,7 +455,7 @@ def _dict2table(library_id, data):
     return j
 
 def _hr():
-    return '<hr class="mt-5 border border-primary border-3 opacity-75"">'
+    return '<hr class="my-5 border border-primary border-3 opacity-75"">'
 
 
 def _embed_pdf(library_id, item_key, data):
