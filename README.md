@@ -4,7 +4,7 @@ This is a set of experimental tools supporting the use of [Zotero](https://zoter
 
 The tools are provided as an extensible set of utilities that can be accessed through a web server running Python 3.5 or higher, along with a core set of functions that retrieve updated item metadata from the Zotero API and store it locally on disk. It is possible to run this application on a public server or as a local Flask application.
 
-Access to a specific set of Zotero group libraries must be configured manually. Tools providing read-only access to metadata from these libraries are accessible to anyone with server access, while tools that support library editing require a login password or key, and optionally the successfull completion of a ReCaptcha test as well. 
+Access to a specific set of Zotero group libraries must be configured manually. Tools providing read-only access to metadata from these libraries are accessible to anyone with server access, while tools that support library editing require a login password or key. 
 
 ## Rationale
 
@@ -17,7 +17,6 @@ The current set of tools helps us to:
   - __Rename and merge overlapping tags efficiently.__ The Zotero client provides a small tag viewer panel with an inline list that can be difficult to scan. There is no bulk renaming mechanism.
   
   - __Group annotations matching a set of related tags into thematic categories.__ The saved search functionality of Zotero accommodates queries, but searches are not fully implemented for annotation tags.
-
 
 ## Installation and configuration
 
