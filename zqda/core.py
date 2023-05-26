@@ -529,7 +529,7 @@ def library_view(library_id):
     for item in items:
         links.append(_link(library_id, item))
 
-    content = '<p>{}</p>{}<table class="table">{}</table>'.format(
+    content = '<p>{}</p>{}<table class="table w-auto">{}</table>'.format(
         description, _hr(), ''.join(sorted(links)))
 
     return render_template('base.html',
@@ -629,7 +629,7 @@ def index():
         links.append('<tr><td><div>{}</div></td><td>{}<p class="mt-3">{}</p></td></tr>'.format(
             icon, _a(url, data['title']), data['description']))
             
-    content = '<table class="table">' + ''.join(sorted(links)) + '</table>'
+    content = '<table class="table w-auto">' + ''.join(sorted(links)) + '</table>'
 
     return render_template('base.html',
                            content=Markup(content),
@@ -692,10 +692,36 @@ def _collection(library_id, collection_id, collection_data):
     for item in items:
         links.append(_link(library_id, item))
 
-    content = '<table class="table">' + ''.join(sorted(links)) + '</table>'
+    content = '<table class="table w-auto">' + ''.join(sorted(links)) + '</table>'
     return content, collection_title
 
-@app.route('/tag/<library_id>/<tag_name>')
+
+@app.route('/tags/<library_id>')
+def show_tags(library_id):
+    """Show a list of tags in the selected group library."""
+    title = 'Tags: {}'.format(app.config['LIBRARY'][library_id]['title'])
+    links = []
+    tags = _get_tags(library_id)
+    icon = '<i class="bi bi-tag h2"></i>'
+    for tag in sorted(tags):
+        link = url_for('tag_list', library_id=library_id,
+                       tag_name=tag)
+        links.append(
+            '<tr><td><div>{}</div></td><td>{}</td></tr>'.format(
+                icon, _a(link, tag))
+        )
+
+    content = '<table class="table w-auto">' + \
+        ''.join(sorted(links)) + '</table>'
+    
+    return render_template('base.html',
+                           content=Markup(content),
+                           title=title,
+                           library_id=library_id,
+                           )
+
+
+@app.route('/tags/<library_id>/<tag_name>')
 def tag_list(library_id, tag_name):
     """View a list of resources in the library associated with `tag_name`.
     """
@@ -706,7 +732,7 @@ def tag_list(library_id, tag_name):
         
         links.append(_link(library_id, item_key))
     
-    content = '<table class="table">' + \
+    content = '<table class="table w-auto">' + \
             ''.join(sorted(links)) + '</table>'
 
     return render_template('base.html', 
@@ -739,7 +765,7 @@ def help():
         else:
             rule_docs.append(app.view_functions[rule.endpoint].__doc__)
 
-    out.append('<table class="table">')
+    out.append('<table class="table w-auto">')
     out.append('<tr><th>Rule</th><th>Methods</th><th>Description</th></tr>')
 
     for rule, methods, docs in zip(rules, rule_methods, rule_docs):
