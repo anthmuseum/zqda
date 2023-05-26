@@ -14,12 +14,11 @@ app.data_path = os.path.expanduser('~/.local/share/zqda')
 app.config.from_mapping(
     SECRET_KEY='dev',
     TITLE="Zotero QDA tools",
-    ADDRESS="Culture and Development Research Centre",
+    ADDRESS="",
     LICENSE="Content available under a Creative Commons Attribution-ShareAlike 4.0 License, unless otherwise indicated.",
-    DESCRIPTION="This is a set of tools for Zotero QDA analysis.",
-    RECAPTCHA_SITE_KEY=None,
-    RECAPTCHA_SECRET_KEY=None,
-    LIBRARY = []
+    DESCRIPTION="Zotero Qualitative Data Analysis Tools",
+    LIBRARY = [],
+    EXPORT=True
     )
 
 try:

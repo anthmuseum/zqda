@@ -544,8 +544,10 @@ def sync_item(library_id, item_key):
 @app.route('/')
 def index():
     """Home page of the application."""
+    if not app.config.get('EXPORT', True):
+        return redirect(url_for('help'))
 
-    # out = [markdown.markdown(app.config['DESCRIPTION'])]
+    #content = markdown.markdown(app.config['DESCRIPTION'])
     libraries = app.config['LIBRARY'].items()
     links = []
     icon = '<i class="bi bi-folder h2"></i>'
@@ -556,7 +558,7 @@ def index():
             icon, _a(url, data['title']), data['description']))
             
     content = '<table class="table">' + ''.join(sorted(links)) + '</table>'
-    
+
     return render_template('base.html',
                            content=Markup(content),
                            title='Home'
