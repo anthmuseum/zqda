@@ -220,7 +220,7 @@ def _get_collections(library_id):
             item_collections = i['data'].get('collections', []) 
             if i['data'].get('parentCollection', None):
                 item_collections.append(i['data']['parentCollection'])
-            if len(item_collections) == 0 and not i['data'].get('parentItem', None):
+            if len(item_collections) == 0 and not i['data'].get('parentItem', None) and i['data']['itemType'] == 'collection':
                 item_collections.append('top')
 
             for c in item_collections:
@@ -511,7 +511,10 @@ def _embed_note(library_id, data):
 
 @app.route('/view/<library_id>')
 def library_view(library_id):
-    """View an html representation of the library."""
+    """View an html representation of the library. The list includes top-level
+    collections but NOT top-level items, as the latter may include items
+    that have been trashed or deleted. (Such items are still accessible in
+    other views.)"""
 
     description = app.config['LIBRARY'][library_id]['description']
     title = app.config['LIBRARY'][library_id]['title']
@@ -657,8 +660,10 @@ def _link(library_id, item_key):
         if description_trunc != description:
             description = description_trunc + '...'
 
-        return '<!--{} {} --><tr><td><div>{}</div></td><td>{}<p class="mt-3">{}</p></td></tr>'.format(
-            item_data.get('itemType', 'document'), title, 
+        # Add the itemType and title in a comment for sorting
+        return '<!-- {} {} --><tr><td><div>{}</div></td><td>{}<p class="mt-3">{}</p></td></tr>'.format(
+            item_data.get('itemType', 'document'), 
+            title.replace('-', ' '), # avoid misformed comment tags
             icon, _a(link, title), description)
 
 
@@ -680,6 +685,7 @@ def _collection(library_id, collection_id, collection_data):
     else:
         link = url_for('library_view', library_id=library_id)
         title = app.config['LIBRARY'][library_id]['title']
+
     links.append('<!-- _up --><tr><td>{}</td><td>{}</td></tr>'.format(
         icon, _a(link, title)))
 
