@@ -1,7 +1,6 @@
 import os
 import toml
 from flask import Flask, abort
-from flask_breadcrumbs import Breadcrumbs
 
 app = Flask(__name__)
 

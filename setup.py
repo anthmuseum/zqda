@@ -10,6 +10,7 @@ setup(
         'pyzotero',
         'json2table',
         'markdown',
+        'beautifulsoup4'
     ],
 )
 
