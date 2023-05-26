@@ -37,6 +37,10 @@ def handle_exception(e):
 
 @app.route('/login/<library_id>')
 def login(library_id):
+    """Provide access credentials (passkey) for a library. Logged-in users
+    will have access to (1) tools that modify the library content, and (2) 
+    binary attachment files if public downloads are disabled for that
+    library."""
     if not _check_key(library_id):
         return redirect(url_for('set_key', library_id=library_id, target='library_view'))
     return redirect(url_for('library_view', library_id=library_id))
@@ -543,7 +547,9 @@ def sync_item(library_id, item_key):
 
 @app.route('/')
 def index():
-    """Home page of the application."""
+    """Home page of the application. Depending on how the application 
+    is configured, this will either show a browsable list of projects or
+    redirect to the application help page."""
     if not app.config.get('EXPORT', True):
         return redirect(url_for('help'))
 
