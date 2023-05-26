@@ -379,15 +379,19 @@ def blob(library_id, item_key):
     filepath = os.path.join(dir, item['filename'])
     if not os.path.exists(filepath):
         abort(404)
+    as_attachment = False
+    attachment_filename=None
     mimetype = item['contentType']
     if mimetype == 'text/html':
         mimetype = 'application/zip'
+        as_attachment = True
+        attachment_filename = item_key + '.zip'
     if not app.config['LIBRARY'][library_id].get('allow_downloads', False):
         # always allow images embedded in notes
         if item['linkMode'] != 'embedded_image' and _check_key(library_id) is False:
             abort(401)
 
-    return send_file(filepath, mimetype)
+    return send_file(filepath, mimetype=mimetype, as_attachment=as_attachment, download_name=attachment_filename)
 
 
 def _dict2table(library_id, data):
