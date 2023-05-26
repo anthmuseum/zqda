@@ -396,6 +396,7 @@ def blob(library_id, item_key):
 def _dict2table(library_id, data):
     """Convert a dictionary to tabular form."""
 
+    data = {k:v for k,v in data.items() if v != '' and v != []}
     for k, v in data.items():
         if k == 'creators':
             c = []
@@ -443,8 +444,12 @@ def _dict2table(library_id, data):
         if k in data.keys():
             del data[k]
 
-    table_attributes = {"style": "width:100%",
-          "class": "table table-sm mt-4"}
+    table_class = "table mt-4"
+    if data['itemType'] in ('note', 'attachment'):
+        table_class = "table mt-4 table-sm"
+    table_attributes = {"style": "width:100%", "class": table_class}
+
+
     j = json2table.convert(data, table_attributes=table_attributes)
     j = j.replace('<ul>', '<ul class="mb-0 ms-0 ps-0" style="list-style-type:none">')
     return j
@@ -452,21 +457,56 @@ def _dict2table(library_id, data):
 def _hr():
     return '<hr class="mt-5 border border-primary border-3 opacity-75"">'
 
-def _note(library_id, data):
+
+def _embed_pdf(library_id, item_key, data):
+    content = '<div class="ratio ratio-4x3"><object data="{pdf}" type="application/pdf"><p><a href="{pdf}">Download PDF</a></p></object></div>'.format(
+        pdf=url_for('blob', library_id=library_id, item_key=item_key)
+    )
+    children = _get_children(library_id)
+    data['childItem'] = children.get(item_key, [])
+    metadata = _dict2table(library_id, data)
+    return content + _hr() + metadata
+
+
+def _embed_img(library_id, item_key, data):
+    content = '<img src="{}" class="img-fluid">'.format(
+        url_for('blob', library_id=library_id, item_key=item_key)
+    )
+    metadata = _dict2table(library_id, data)
+    return content + _hr() + metadata
+
+
+def _embed_video(library_id, item_key, data):
+    content = '<div class="ratio ratio-16x9"><video src="{}" class="object-fit-contain" controls></video></div>'.format(
+        url_for('blob', library_id=library_id, item_key=item_key)
+    )
+    metadata = _dict2table(library_id, data)
+    return content + _hr() + metadata
+
+
+def _embed_audio(library_id, item_key, data):
+    content = '<audio controls><source src="{}"></audio>'.format(
+        url_for('blob', library_id=library_id, item_key=item_key)
+    )
+    metadata = _dict2table(library_id, data)
+    return content + _hr() + metadata
+
+
+def _embed_note(library_id, data):
     content = data['note']
     m = re.search(r'<h1>(.*?)</h1>', data['note'])
     if m: 
-        data['title'] = BeautifulSoup(m.group(1), "html.parser").text
+        title = BeautifulSoup(m.group(1), "html.parser").text
         content = re.sub(r'<h1>(.*?)</h1>', '', content, count=1)
     else:
-        data['title'] = 'Note'
+        title = 'Note'
     del data['note']  # don't show in the metadata table
     content = re.sub(r'data-attachment-key="(.*?)"',
                      'src="/raw/{}/\g<1>" class="img-fluid"'.format(library_id), content)
     content = _process_citations(content)
 
     metadata = _dict2table(library_id, data)
-    return content + _hr() + metadata, data
+    return content + _hr() + metadata, title
 
 
 @app.route('/view/<library_id>')
@@ -479,9 +519,9 @@ def library_view(library_id):
     items = collections['top']
     links = []
 
-    icon = '<i class="bi bi-arrow-return-left h2"></i>'
-    links.append(
-        '<!-- _up --><tr><td>{}</td><td>{}</td></tr>'.format(icon, _a(url_for('index'), 'Top')))
+    # icon = '<i class="bi bi-arrow-return-left h2"></i>'
+    # links.append(
+    #     '<!-- _up --><tr><td>{}</td><td>{}</td></tr>'.format(icon, _a(url_for('index'), 'Top')))
 
     for item in items:
         links.append(_link(library_id, item))
@@ -495,6 +535,16 @@ def library_view(library_id):
                            library_id=library_id,
                            )    
 
+
+def _download_authorized(library_id, data):
+    if app.config['LIBRARY'][library_id].get('allow_downloads', False):
+        return True
+    if data.get('linkMode', '') == 'embedded_image':
+        return True
+    if _check_key(library_id) is True:
+        return True
+    return False
+
 @app.route('/view/<library_id>/<item_key>')
 def html(library_id, item_key):
     """View an html representation of a library item. For most items this
@@ -506,13 +556,23 @@ def html(library_id, item_key):
     data = _get_item(library_id, item_key)
     if not data:
         abort(404)
+    title = data.get('title', '[untitled]')
     if data.get('note', None):
-        content, data = _note(library_id, data)
-        title = data.get('title', '[untitled]')
+        content, title = _embed_note(library_id, data)
     elif data['itemType'] == 'collection':
         content, title = _collection(library_id, item_key, data)
+    
+    # embeds
+    elif data.get('contentType', '') == 'application/pdf' and _download_authorized(library_id, data):
+        content = _embed_pdf(library_id, item_key, data)      
+    elif data.get('contentType', '').startswith('image') and _download_authorized(library_id, data):
+        content = _embed_img(library_id, item_key, data)
+    elif data.get('contentType', '').startswith('video') and _download_authorized(library_id, data):
+        content = _embed_video(library_id, item_key, data)
+    elif data.get('contentType', '').startswith('audio') and _download_authorized(library_id, data):
+        content = _embed_audio(library_id, item_key, data)
+
     else:
-        title = data.get('title', '[untitled]')
         children = _get_children(library_id)
         data['childItem'] = children.get(item_key, [])
         content = _dict2table(library_id, data)
@@ -609,15 +669,19 @@ def _collection(library_id, collection_id, collection_data):
 
     collection_title = collection_data['name']
 
+    icon = '<i class="bi bi-arrow-return-left h2"></i>'
     if collection_data.get('parentCollection', None):
         link = url_for('html', library_id=library_id,
                        item_key=collection_data['parentCollection'])
         parent_data = _get_item(
             library_id, collection_data['parentCollection'])
-        icon = '<i class="bi bi-arrow-return-left h2"></i>'
+
         title = parent_data['name']
-        links.append(
-            '<!-- _up --><tr><td>{}</td><td>{}</td></tr>'.format(icon, _a(link, title)))
+    else:
+        link = url_for('library_view', library_id=library_id)
+        title = app.config['LIBRARY'][library_id]['title']
+    links.append('<!-- _up --><tr><td>{}</td><td>{}</td></tr>'.format(
+        icon, _a(link, title)))
 
     for item in items:
         links.append(_link(library_id, item))
