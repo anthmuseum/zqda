@@ -114,20 +114,20 @@ def _sync_items(library_id):
     """Synchronize all items in a single group library. Store item data
     for updated items in the file "items_LIBRARY-ID.db" within the application
     data directory. The latest local version number for each library is stored 
-    in the file "versions.pkl" in the application data directory.
+    in the file "versions.json" in the application data directory.
     """
     local_ver = 0
     api_key = app.config['LIBRARY'][library_id]['api_key']
     zot = zotero.Zotero(library_id, 'group', api_key)
 
     remote_ver = zot.last_modified_version()
-    library_data = _sync_library_data(library_id, api_key)
+    _sync_library_data(library_id, api_key)
 
-    pkl = os.path.join(app.data_path, 'versions.pkl')
+    jsn = os.path.join(app.data_path, 'versions.json')
     data = {}
-    if os.path.exists(pkl):
-        with open(pkl, 'rb') as f:
-            data = pickle.load(f)
+    if os.path.exists(jsn):
+        with open(jsn, 'r') as f:
+            data = json.load(f)
             local_ver = data.get(library_id, 0)
     if not remote_ver > local_ver:
         return "No changes."
@@ -156,8 +156,8 @@ def _sync_items(library_id):
                 _load_attachment(zot, item)
 
     data[library_id] = remote_ver
-    with open(pkl, 'wb') as f:
-        data = pickle.dump(data, f)
+    with open(jsn, 'w') as f:
+        json.dump(data, f, ensure_ascii=False)
 
     return "Updated {} items.".format(len(items))
 

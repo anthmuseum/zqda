@@ -42,13 +42,13 @@ def _get_filtered_tags(library_id, purge=False, remove=None):
     that also have a thematic (cluster) tag associated with them."""
     
     tags = []
-    tagfile = 'group_tags_{}.pkl'.format(library_id)
-    pkl = os.path.join(app.config_path, tagfile)
+    tagfile = 'group_tags_{}.json'.format(library_id)
+    jsn = os.path.join(app.config_path, tagfile)
     prefix = app.config['LIBRARY'][library_id].get('group_tag_prefix', '@')
 
-    if os.path.exists(pkl) and not purge:
-        with open(pkl, 'rb') as f:
-            tags = pickle.load(f)
+    if os.path.exists(jsn) and not purge:
+        with open(jsn, 'r') as f:
+            tags = json.load(f)
 
         if remove and isinstance(remove, list):
             for tag in remove:
@@ -56,8 +56,8 @@ def _get_filtered_tags(library_id, purge=False, remove=None):
                     tags.remove(tag)
                 except ValueError:
                     continue
-            with open(pkl, 'wb') as f:
-                pickle.dump(tags, f)
+            with open(jsn, 'w') as f:
+                jsn.dump(tags, f)
         return tags
 
     # Filter to ONLY annotations
@@ -72,8 +72,8 @@ def _get_filtered_tags(library_id, purge=False, remove=None):
                    for e in item['data']['tags'] if not e['tag'] in tags]
             tags.extend(new)
 
-    with open(pkl, 'wb') as f:
-        pickle.dump(tags, f)
+    with open(jsn, 'w') as f:
+        json.dump(tags, f)
     return tags
 
 
