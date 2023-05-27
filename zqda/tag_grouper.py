@@ -43,7 +43,7 @@ def _get_filtered_tags(library_id, purge=False, remove=None):
     
     tags = []
     tagfile = 'group_tags_{}.json'.format(library_id)
-    jsn = os.path.join(app.config_path, tagfile)
+    jsn = os.path.join(app.data_path, tagfile)
     prefix = app.config['LIBRARY'][library_id].get('group_tag_prefix', '@')
 
     if os.path.exists(jsn) and not purge:
@@ -73,7 +73,7 @@ def _get_filtered_tags(library_id, purge=False, remove=None):
             tags.extend(new)
 
     with open(jsn, 'w') as f:
-        json.dump(tags, f)
+        json.dump(tags, f, ensure_ascii=False)
     return tags
 
 
