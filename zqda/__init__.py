@@ -17,7 +17,10 @@ app.config.from_mapping(
     LICENSE="Content available under a Creative Commons Attribution-ShareAlike 4.0 License, unless otherwise indicated.",
     DESCRIPTION="Zotero Qualitative Data Analysis Tools",
     LIBRARY = [],
-    EXPORT=True
+    EXPORT=True,
+    CACHE_DEFAULT_TIMEOUT=31536000,
+    CACHE_TYPE='FileSystemCache',
+    CACHE_DIR=os.path.join(app.data_path, 'cache')
     )
 
 try:

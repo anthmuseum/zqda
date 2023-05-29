@@ -10,7 +10,8 @@ setup(
         'pyzotero',
         'json2table',
         'markdown',
-        'beautifulsoup4'
+        'beautifulsoup4',
+        'Flask-Caching'
     ],
 )
 

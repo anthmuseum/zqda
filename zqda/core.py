@@ -14,9 +14,11 @@ from werkzeug.utils import import_string
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.exceptions import HTTPException
 from bs4 import BeautifulSoup
+from flask_caching import Cache
 
 from zqda import app
 
+cache = Cache(app)
 
 class Z(zotero.Zotero):
     """Local version of pyzotero Zotero class with additional functions"""
@@ -196,8 +198,7 @@ def _sync_item(library_id, item_key, item_type='item'):
     return "Updated!"
 
 
-
-# FIXME: cache output
+@cache.memoize()
 def _get_collections(library_id):
     """Retrieve collections from the stored item metadata for a library.
     Although the Zotero API can return a list of collections, this may be
@@ -238,7 +239,7 @@ def _load_attachment(zot, item):
     mimetype = item['data']['contentType']
     if mimetype == 'text/html':
         mimetype = 'application/zip'
-        filename = item_key + '.zip'
+        filename = key + '.zip'
     filepath = os.path.join(dir, filename)
     if os.path.exists(filepath):
         return
@@ -251,7 +252,8 @@ def _load_attachment(zot, item):
     with open(filepath, 'wb') as f:
         f.write(blob)
 
-# FIXME: cache output
+
+@cache.memoize()
 def _get_tags(library_id):
     """Retrieve tags from the stored item metadata for a library.
     Although the Zotero API can return a list of tags, if there is a large
@@ -281,7 +283,7 @@ def _get_tags(library_id):
     return tags
 
 
-# FIXME: cache output
+@cache.memoize()
 def _get_children(library_id):
     """Update the list of children for each item based on parentItem.
     """
@@ -599,7 +601,7 @@ def sync():
         out.append('Synchronizing {}...'.format(library_id))
         r = _sync_items(library_id)
         out.append(r)
-
+    cache.clear()
     return render_template('base.html',
                            content=Markup('<br>'.join(out)),
                            title='Library synchronization',
@@ -644,6 +646,8 @@ def _a(link, title):
 
 def _link(library_id, item_key):
         item_data = _get_item(library_id, item_key)
+        if not item_data:
+            return ''
         title = item_data.get('title', item_data.get('name', item_data.get('filename', item_data.get('itemType', 'Untitled'))))
         link = url_for('html', library_id=library_id, item_key=item_key)
         icon = '<i class="bi bi-file-earmark h2"></i>'
@@ -731,7 +735,6 @@ def tag_list(library_id, tag_name):
     items = all_tags[tag_name]
     links = []
     for item_key in items:
-        
         links.append(_link(library_id, item_key))
     
     content = '<table class="table w-auto">' + \
