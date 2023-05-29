@@ -107,8 +107,6 @@ def _sync_library_data(library_id, api_key):
     return
 
     
-
-# FIXME: Use json instead of pickle, so we can update manually if needed
 # e.g., to resync from a specific version
 def _sync_items(library_id):
     """Synchronize all items in a single group library. Store item data
@@ -232,12 +230,16 @@ def _get_collections(library_id):
 
 
 def _load_attachment(zot, item):
-    key = item['data']['key']
     if item['data'].get('linkMode') in ('linked_file', 'linked_url'):
         return
+    key = item['data']['key']
     dir = os.path.join(app.data_path, key)
-    # Note this will actually be a zip file if it ends with .html
+    # This will actually be a zip file if it ends with .html
     filename = item['data']['filename']
+    mimetype = item['data']['contentType']
+    if mimetype == 'text/html':
+        mimetype = 'application/zip'
+        filename = item_key + '.zip'
     filepath = os.path.join(dir, filename)
     if os.path.exists(filepath):
         return
@@ -374,23 +376,24 @@ def blob(library_id, item_key):
     item = _get_item(library_id, item_key)
     if item['itemType'] != 'attachment':
         abort(404)
-    dir = os.path.join(app.data_path, item_key)
-    filepath = os.path.join(dir, item['filename'])
-    if not os.path.exists(filepath):
-        abort(404)
-    as_attachment = False
-    attachment_filename=None
+
+    filename = item['filename']
     mimetype = item['contentType']
     if mimetype == 'text/html':
         mimetype = 'application/zip'
-        as_attachment = True
-        attachment_filename = item_key + '.zip'
+        filename = item_key + '.zip'
+
+    dir = os.path.join(app.data_path, item_key)
+    filepath = os.path.join(dir, filename)
+    if not os.path.exists(filepath):
+        abort(404)
+
     if not app.config['LIBRARY'][library_id].get('allow_downloads', False):
         # always allow images embedded in notes
         if item['linkMode'] != 'embedded_image' and _check_key(library_id) is False:
             abort(401)
 
-    return send_file(filepath, mimetype=mimetype, as_attachment=as_attachment, download_name=attachment_filename)
+    return send_file(filepath)
 
 
 def _dict2table(library_id, data):
