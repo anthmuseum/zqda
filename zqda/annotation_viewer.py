@@ -1,10 +1,7 @@
-import json
-import os
 from zqda import app
 from flask import render_template, url_for
 from markupsafe import Markup
 from pyzotero import zotero
-import json
 import zqda.core
 
 

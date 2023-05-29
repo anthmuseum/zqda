@@ -1,8 +1,10 @@
-from zqda import app
-import zqda.core
 from flask import render_template, url_for, request, redirect
 from markupsafe import Markup
 from pyzotero import zotero
+
+
+from zqda import app
+import zqda.core
 
 
 def _rename(library_id, src_tag, target_tag):
@@ -61,6 +63,5 @@ def tag_rename_form(library_id):
 
     return render_template('base.html',
                            content=Markup(' '.join(out)),
-                        #    help=Markup(HELP),
                            title='Rename tags'
                            )

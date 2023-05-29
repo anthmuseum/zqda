@@ -2,7 +2,6 @@ import urllib.parse
 import toml
 import os
 import dbm
-import pickle
 import operator
 import re
 import json
