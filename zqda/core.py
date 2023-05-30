@@ -271,6 +271,9 @@ def _get_tags(library_id):
     with dbm.open(item_cache, 'r') as db:
         for key in db.keys():
             i = json.loads(db[key])
+            # ignore unfiled items
+            if len(i['data'].get('collections', [])) == 0 and not i['data'].get('parentItem', None):
+                continue
             item_tags = i['data'].get('tags', None)
             if not item_tags:
                 continue
@@ -732,7 +735,9 @@ def tag_list(library_id, tag_name):
     """View a list of resources in the library associated with `tag_name`.
     """
     all_tags = _get_tags(library_id)
-    items = all_tags[tag_name]
+    items = all_tags.get(tag_name, None)
+    if not items:
+        abort(404)
     links = []
     for item_key in items:
         links.append(_link(library_id, item_key))
