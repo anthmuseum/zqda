@@ -499,19 +499,19 @@ def _embed_audio(library_id, item_key, data):
     return content + _hr() + metadata
 
 
-
 def _embed_note(library_id, data):
     content = data['note']
     m = re.search(r'<h1>(.*?)</h1>', data['note'])
     if m: 
         title = BeautifulSoup(m.group(1), "html.parser").text
-        content = re.sub(r'<h1>(.*?)</h1>', '', content, count=1)
+        content = re.sub(r'<h[1-3]>(.*?)</h[1-3]>', '', content, count=1)
     else:
         title = 'Note'
     del data['note']  # don't show in the metadata table
-    # FIXME: How to use url_for()? 
+
     content = re.sub(r'data-attachment-key="(.*?)"',
-                     'src="../../raw/{}/\g<1>" class="img-fluid"'.format(library_id), content)
+                     'src="{}\g<1>" class="img-fluid"'.format(
+                        url_for('blob', library_id=library_id, item_key='')), content)
     content = _process_citations(content)
 
     metadata = _dict2table(library_id, data)
