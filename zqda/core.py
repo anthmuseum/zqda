@@ -348,9 +348,9 @@ def _translate_zotero_uri(uri):
     # http://zotero.org/groups/4711671/items/UJ8WGSFR
     m = re.match('^.*zotero.org/groups/(.*?)/items/(.*)', uri)
     if m:
-        library = m.group(1)
-        key = m.group(2)
-        return '/view/{}/{}'.format(library, key)
+        library_id = m.group(1)
+        item_key = m.group(2)
+        return url_for('html', library_id=library_id, item_key=item_key)
     return uri
 
 
@@ -499,6 +499,7 @@ def _embed_audio(library_id, item_key, data):
     return content + _hr() + metadata
 
 
+
 def _embed_note(library_id, data):
     content = data['note']
     m = re.search(r'<h1>(.*?)</h1>', data['note'])
@@ -508,8 +509,9 @@ def _embed_note(library_id, data):
     else:
         title = 'Note'
     del data['note']  # don't show in the metadata table
+    # FIXME: How to use url_for()? 
     content = re.sub(r'data-attachment-key="(.*?)"',
-                     'src="/raw/{}/\g<1>" class="img-fluid"'.format(library_id), content)
+                     'src="../../raw/{}/\g<1>" class="img-fluid"'.format(library_id), content)
     content = _process_citations(content)
 
     metadata = _dict2table(library_id, data)
