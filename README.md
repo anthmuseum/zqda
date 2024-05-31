@@ -22,7 +22,7 @@ The current set of tools helps us to:
 
 Install using pip:
 
-`$ pip install -e git+https://github.com/mcdrc/zqda.git`
+`$ pip install -e git+https://github.com/anthmuseum/zqda.git`
 
 A configuration file `config.toml` should be created manually in the directory "`~/.config/zqda/`. 
 
