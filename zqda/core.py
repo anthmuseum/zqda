@@ -15,6 +15,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.exceptions import HTTPException
 from bs4 import BeautifulSoup
 from flask_caching import Cache
+import markdown
 
 from zqda import app
 
