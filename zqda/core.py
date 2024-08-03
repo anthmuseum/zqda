@@ -531,7 +531,7 @@ def library_view(library_id):
     items = collections['top']
     links = []
 
-    # icon = '<i class="bi bi-arrow-return-left h2"></i>'
+    # icon = '<i class="bi bi-arrow-return-left h2 text-primary"></i>'
     # links.append(
     #     '<!-- _up --><tr><td>{}</td><td>{}</td></tr>'.format(icon, _a(url_for('index'), 'Top')))
 
@@ -631,7 +631,7 @@ def index():
     #content = markdown.markdown(app.config['DESCRIPTION'])
     libraries = app.config['LIBRARY'].items()
     links = []
-    icon = '<i class="bi bi-folder h2"></i>'
+    icon = '<i class="bi bi-folder h2 text-primary"></i>'
 
     for library, data in libraries:
         url = url_for('library_view', library_id=library)
@@ -655,15 +655,15 @@ def _link(library_id, item_key):
             return ''
         title = item_data.get('title', item_data.get('name', item_data.get('filename', item_data.get('itemType', 'Untitled'))))
         link = url_for('html', library_id=library_id, item_key=item_key)
-        icon = '<i class="bi bi-file-earmark h2"></i>'
+        icon = '<i class="bi bi-file-earmark h2 text-primary"></i>'
         if item_data.get('itemType', '') == 'collection':
-            icon = '<i class="bi bi-folder h2"></i>'
+            icon = '<i class="bi bi-folder h2 text-primary"></i>'
         if item_data.get('itemType', '') == 'note':
-            icon = '<i class="bi bi-journal-text h2"></i>'
+            icon = '<i class="bi bi-journal-text h2 text-primary"></i>'
         if item_data.get('itemType', '') == 'annotation':
             parentItem = _get_item(library_id, item_data['parentItem'])
             title = ': '.join([title, parentItem.get('title')])
-            icon = '<i class="bi bi-pencil-square h2"></i>'
+            icon = '<i class="bi bi-pencil-square h2 text-primary"></i>'
                                    
         description = item_data.get('abstractNote', item_data.get('annotationText', item_data.get('note', '')))
         description = BeautifulSoup(description, "html.parser").text
@@ -685,7 +685,7 @@ def _collection(library_id, collection_id, collection_data):
 
     collection_title = collection_data['name']
 
-    icon = '<i class="bi bi-arrow-return-left h2"></i>'
+    icon = '<i class="bi bi-arrow-return-left h2 text-primary"></i>'
     if collection_data.get('parentCollection', None):
         link = url_for('html', library_id=library_id,
                        item_key=collection_data['parentCollection'])
@@ -713,7 +713,7 @@ def show_tags(library_id):
     title = 'Tags: {}'.format(app.config['LIBRARY'][library_id]['title'])
     links = []
     tags = _get_tags(library_id)
-    icon = '<i class="bi bi-tag h2"></i>'
+    icon = '<i class="bi bi-tag h2 text-primary"></i>'
     for tag in sorted(tags):
         link = url_for('tag_list', library_id=library_id,
                        tag_name=tag)
