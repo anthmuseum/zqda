@@ -637,7 +637,7 @@ def index():
         links.append('<tr><td style="width:2em"><div>{}</div></td><td>{}<p class="mt-3">{}</p></td></tr>'.format(
             icon, _a(url, data['title']), data['description']))
             
-    content = (markdown.markdown(app.config.get('DESCRIPTION', ' '))) + 
+    content = (markdown.markdown(app.config.get('DESCRIPTION', ' ')) + 
                 '<table class="table">' + 
                 ''.join(sorted(links)) +
                 '</table>')
