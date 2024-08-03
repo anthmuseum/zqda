@@ -672,7 +672,7 @@ def _link(library_id, item_key):
             description = description_trunc + '...'
 
         # Add the itemType and title in a comment for sorting
-        return '<!-- {} {} --><tr><td><div>{}</div></td><td>{}<p class="mt-3">{}</p></td></tr>'.format(
+        return '<!-- {} {} --><tr><td style="width:2em"><div>{}</div></td><td>{}<p class="mt-3">{}</p></td></tr>'.format(
             item_data.get('itemType', 'document'), 
             title.replace('-', ' '), # avoid misformed comment tags
             icon, _a(link, title), description)
