@@ -628,7 +628,6 @@ def index():
     if not app.config.get('EXPORT', True):
         return redirect(url_for('help'))
 
-    content = markdown.markdown(app.config['DESCRIPTION'])
     libraries = app.config['LIBRARY'].items()
     links = []
     icon = '<i class="bi bi-folder h2 text-primary"></i>'
@@ -638,7 +637,10 @@ def index():
         links.append('<tr><td style="width:2em"><div>{}</div></td><td>{}<p class="mt-3">{}</p></td></tr>'.format(
             icon, _a(url, data['title']), data['description']))
             
-    content = '<table class="table">' + ''.join(sorted(links)) + '</table>'
+    content = (markdown.markdown(app.config.get('DESCRIPTION', ' '))) + 
+                '<table class="table">' + 
+                ''.join(sorted(links)) +
+                '</table>')
 
     return render_template('base.html',
                            content=Markup(content),
