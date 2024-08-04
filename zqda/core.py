@@ -76,7 +76,6 @@ def set_key():
             flash("Please supply a valid password/key for this library.", "danger")
         elif not _check_key(library_id, generate_password_hash(key)):
             flash("Invalid password/key.", "danger")
-
         else:
             r = make_response(redirect(url_for(target, library_id=library_id)))
             r.set_cookie('key', generate_password_hash(key))
