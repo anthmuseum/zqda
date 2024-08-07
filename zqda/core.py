@@ -360,7 +360,7 @@ def _get_item(library_id, item_key, data='data'):
             i = json.loads(db[item_key])
         except KeyError:
             return None
-    return i[data]
+    return i.get(data, None)
 
 
 def _translate_zotero_uri(uri):
@@ -682,9 +682,11 @@ def _link(library_id, item_key):
         return ''
     # FIXME: do in one request
     bib = _get_item(library_id, item_key, 'bib')
-
-    # title = item_data.get('title', item_data.get('name', item_data.get('filename', item_data.get('itemType', 'Untitled'))))
-    title = bib
+    if bib:
+        title = bib
+    else:
+        title = item_data.get('title', item_data.get('name', item_data.get(
+            'filename', item_data.get('itemType', 'Untitled'))))
     link = url_for('html', library_id=library_id, item_key=item_key)
     icon = '<i class="bi bi-file-earmark h2 text-primary"></i>'
     if item_data.get('itemType', '') == 'collection':
