@@ -16,6 +16,7 @@ from werkzeug.exceptions import HTTPException
 from bs4 import BeautifulSoup
 from flask_caching import Cache
 import markdown
+from slugify import slugify
 
 from zqda import app
 
@@ -253,7 +254,7 @@ def _load_attachment(zot, item):
     key = item['data']['key']
     dir = os.path.join(app.data_path, key)
     # This will actually be a zip file if it ends with .html
-    filename = item['data']['filename']
+    filename = slugify(item['data']['filename'])
     mimetype = item['data']['contentType']
     if mimetype == 'text/html':
         mimetype = 'application/zip'

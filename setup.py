@@ -11,7 +11,8 @@ setup(
         'json2table',
         'markdown',
         'beautifulsoup4',
-        'Flask-Caching'
+        'Flask-Caching',
+        'python-slugify'
     ],
 )
 
