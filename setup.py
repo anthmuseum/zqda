@@ -12,7 +12,7 @@ setup(
         'markdown',
         'beautifulsoup4',
         'Flask-Caching',
-        'python-slugify'
+        # 'python-slugify'
     ],
 )
 
