@@ -43,7 +43,7 @@ def handle_exception(e):
 @app.route('/login/<library_id>')
 def login(library_id):
     """Provide access credentials (passkey) for a library. Logged-in users
-    will have access to (1) tools that modify the library content, and (2)
+    will have access to (1) tools that modify the library content, and (2) 
     binary attachment files if public downloads are disabled for that
     library."""
     if not _check_key(library_id):
@@ -132,7 +132,7 @@ def _sync_library_data(library_id, api_key):
 def _sync_items(library_id):
     """Synchronize all items in a single group library. Store item data
     for updated items in the file "items_LIBRARY-ID.db" within the application
-    data directory. The latest local version number for each library is stored
+    data directory. The latest local version number for each library is stored 
     in the file "versions.json" in the application data directory.
     """
     local_ver = 0
@@ -169,9 +169,9 @@ def _sync_items(library_id):
 
     with dbm.open(item_cache, 'c') as db:
         for item in items:
-            db[item['key']] = json.dumps(item)
+            db[item['key']] = json.dumps(item, ensure_ascii=False)
             if item['data']['itemType'] == 'attachment':
-                _load_attachment(zot, item)
+                a = _load_attachment(zot, item)
 
     data[library_id] = remote_ver
     with open(jsn, 'w') as f:
@@ -221,7 +221,7 @@ def _sync_item(library_id, item_key, item_type='item'):
 def _get_collections(library_id):
     """Retrieve collections from the stored item metadata for a library.
     Although the Zotero API can return a list of collections, this may be
-    faster.
+    faster. 
     """
     collections = {'top': []}
 
@@ -254,20 +254,25 @@ def _load_attachment(zot, item):
     key = item['data']['key']
     dir = os.path.join(app.data_path, key)
     # This will actually be a zip file if it ends with .html
-    filename = item['data']['filename']
+    filename = _sanitize(item['data']['filename'])
+    # filename = item['data']['filename']
     mimetype = item['data']['contentType']
     if mimetype == 'text/html':
         mimetype = 'application/zip'
         filename = key + '.zip'
     filepath = os.path.join(dir, filename)
-    if os.path.exists(filepath.encode('utf-8')):
-        return
-    if not os.path.exists(dir.encode('utf-8')):
+    try:
+        filepath = filepath.encode('utf-8')
+    except AttributeError:  # already decoded
+        pass
+    if os.path.exists(filepath):
+        return None
+    if not os.path.exists(dir):
         os.makedirs(dir)
     try:
         blob = zot.file(key)
     except:
-        return
+        return None
     with open(filepath, 'wb') as f:
         f.write(blob)
 
@@ -277,7 +282,7 @@ def _get_tags(library_id):
     """Retrieve tags from the stored item metadata for a library.
     Although the Zotero API can return a list of tags, if there is a large
     number of them in the library it is much faster to open the stored database
-    entry for each item and retrieve the tags list from there.
+    entry for each item and retrieve the tags list from there. 
     """
     tags = {}
 
@@ -348,8 +353,14 @@ def _get_items(library_id):
     return items
 
 
+def _sanitize(filename):
+    base, ext = os.path.splitext(filename)
+    base = slugify(base)
+    return base + ext
+
+
 def _get_item(library_id, item_key, data='data'):
-    """Retrieve the metadata for a single item from the database associated
+    """Retrieve the metadata for a single item from the database associated 
     with a group library."""
     item_cache = os.path.join(
         app.data_path, 'items_{}.db'.format(library_id))
@@ -396,11 +407,13 @@ def _process_citations(txt):
 def blob(library_id, item_key):
     """Download a binary attachment. This may be an item
     attachment or an inline image attached to a note."""
+
     item = _get_item(library_id, item_key)
-    if item['itemType'] != 'attachment':
+
+    if not item or item['itemType'] != 'attachment':
         abort(404)
 
-    filename = item['filename']
+    filename = _sanitize(item['filename'])
     mimetype = item['contentType']
     if mimetype == 'text/html':
         mimetype = 'application/zip'
@@ -408,8 +421,10 @@ def blob(library_id, item_key):
 
     dir = os.path.join(app.data_path, item_key)
     filepath = os.path.join(dir, filename)
-    if not os.path.exists(filepath.encode('utf-8')):
-        abort(404)
+
+    # Compatibility with non-slugified filenames
+    if not os.path.exists(filepath):
+        filepath = os.path.join(dir, item['filename'])
 
     if not app.config['LIBRARY'][library_id].get('allow_downloads', False):
         # always allow images embedded in notes
@@ -586,7 +601,7 @@ def html(library_id, item_key):
     """View an html representation of a library item. For most items this
     will be a table showing item metadata; for a note the full content will
     be shown with the metadata listed below; and for a collection a list
-    of items, sub-collections, and parent collection will be presented in
+    of items, sub-collections, and parent collection will be presented in 
     directory index format."""
 
     data = _get_item(library_id, item_key)
@@ -647,7 +662,7 @@ def sync_item(library_id, item_key):
 
 @app.route('/')
 def index():
-    """Home page of the application. Depending on how the application
+    """Home page of the application. Depending on how the application 
     is configured, this will either show a browsable list of projects or
     redirect to the application help page."""
     if not app.config.get('EXPORT', True):
@@ -664,8 +679,8 @@ def index():
 
     content = (markdown.markdown(app.config.get('DESCRIPTION', ' ')) +
                '<table class="table">' +
-                ''.join(sorted(links)) +
-                '</table>')
+               ''.join(sorted(links)) +
+               '</table>')
 
     return render_template('base.html',
                            content=Markup(content),
@@ -680,19 +695,21 @@ def _link(library_id, item_key):
     item_data = _get_item(library_id, item_key)
     if not item_data:
         return ''
-    # FIXME: do in one request
-    bib = _get_item(library_id, item_key, 'bib')
+    title_data = item_data.get('title', item_data.get(
+        'name', item_data.get('filename', item_data.get('itemType', 'Untitled'))))
+
+    bib = _get_item(library_id, item_key, 'bib')  # FIXME: do in one request
     if bib:
         title = bib
     else:
-        title = item_data.get('title', item_data.get('name', item_data.get(
-            'filename', item_data.get('itemType', 'Untitled'))))
+        title = title_data
     link = url_for('html', library_id=library_id, item_key=item_key)
     icon = '<i class="bi bi-file-earmark h2 text-primary"></i>'
     if item_data.get('itemType', '') == 'collection':
         icon = '<i class="bi bi-folder h2 text-primary"></i>'
     if item_data.get('itemType', '') == 'note':
         icon = '<i class="bi bi-journal-text h2 text-primary"></i>'
+        title = title_data  # ctations don't work well for notes
     if item_data.get('itemType', '') == 'annotation':
         parentItem = _get_item(library_id, item_data['parentItem'])
         title = ': '.join([title, parentItem.get('title')])
@@ -708,7 +725,7 @@ def _link(library_id, item_key):
     # Add the itemType and title in a comment for sorting
     return '<!-- {} {} --><tr><td style="width:2em"><div>{}</div></td><td>{}<p class="mt-3">{}</p></td></tr>'.format(
         item_data.get('itemType', 'document'),
-        title.replace('-', ' '),  # avoid misformed comment tags
+        title_data.replace('-', ' '),  # avoid misformed comment tags
         icon, _a(link, title), description)
 
 
