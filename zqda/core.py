@@ -152,7 +152,8 @@ def _sync_items(library_id):
         return "No changes."
 
     items = zot.everything(zot.items(since=local_ver, include='bib,data'))
-    deleted_items = zot.everything(zot.deleted(since=local_ver))
+    # deleted_items = []
+    # map(deleted_items.extend, zot.everything(zot.deleted(since=local_ver)))
     collections = zot.everything(zot.collections(since=local_ver))
 
     for c in collections:
@@ -167,14 +168,16 @@ def _sync_items(library_id):
     items = items + collections  # + library_data
 
     item_cache = os.path.join(app.data_path, 'items_{}.db'.format(library_id))
-
     with dbm.open(item_cache, 'c') as db:
         for item in items:
             db[item['key']] = json.dumps(item, ensure_ascii=False)
             if item['data']['itemType'] == 'attachment':
                 a = _load_attachment(zot, item)
-        for item in deleted_items:
-            del db[item['key']]
+        # for item in deleted_items:
+        #     try:
+        #         del db[item['key']]
+        #     except: # could be a tag, saved search, etc.
+        #         continue
 
     data[library_id] = remote_ver
     with open(jsn, 'w') as f:
@@ -653,6 +656,22 @@ def sync():
     return render_template('base.html',
                            content=Markup('<br>'.join(out)),
                            title='Library synchronization')
+
+
+@app.route('/delete/<library_id>/<item_key>')
+def delete_item(library_id, item_key):
+    """Delete a single item."""
+    if _check_key(library_id) is False:
+        abort(401)
+
+    item_cache = os.path.join(app.data_path, 'items_{}.db'.format(library_id))
+    with dbm.open(item_cache, 'c') as db:
+        try:
+            del (db[item_key])
+        except Exception as e:
+            flash(e)
+
+    return redirect(url_for('html', library_id=library_id, item_key=item_key))
 
 
 @app.route('/sync/<library_id>/<item_key>')
