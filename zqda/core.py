@@ -152,6 +152,7 @@ def _sync_items(library_id):
         return "No changes."
 
     items = zot.everything(zot.items(since=local_ver, include='bib,data'))
+    deleted_items = zot.everything(zot.deleted(since=local_ver))
     collections = zot.everything(zot.collections(since=local_ver))
 
     for c in collections:
@@ -172,6 +173,8 @@ def _sync_items(library_id):
             db[item['key']] = json.dumps(item, ensure_ascii=False)
             if item['data']['itemType'] == 'attachment':
                 a = _load_attachment(zot, item)
+        for item in deleted_items:
+            del db[item['key']]
 
     data[library_id] = remote_ver
     with open(jsn, 'w') as f:
