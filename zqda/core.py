@@ -734,7 +734,7 @@ def _link(library_id, item_key):
         title = title_data  # ctations don't work well for notes
     if item_data.get('itemType', '') == 'annotation':
         parentItem = _get_item(library_id, item_data['parentItem'])
-        title = ': '.join([title, parentItem.get('title')])
+        title = parentItem.get('title')
         icon = '<i class="bi bi-pencil-square h2 text-primary"></i>'
 
     description = item_data.get('abstractNote', item_data.get(
