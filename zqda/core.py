@@ -344,18 +344,12 @@ def _get_children(library_id):
 def _get_items(library_id):
     """Retrieve the item metadata from the database associated with a group
     library."""
-
-    items = []
     item_cache = os.path.join(
         app.data_path, 'items_{}.db'.format(library_id))
     if not os.path.exists(item_cache):
-        return items
-
+        return []
     with dbm.open(item_cache, 'r') as db:
-        for key in db.keys():
-            i = json.loads(db[key])
-            items.append(i)
-
+        items = [json.loads(db[key]) for key in db.keys()]
     return items
 
 
