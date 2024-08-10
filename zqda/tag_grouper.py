@@ -23,8 +23,9 @@ HELP = """
 def _apply_category_tag(library_id, tags_group, target):
     """Apply a tag to all library items matching any of the tags in the list
     `tags_group`, then synchronize changes to the local database."""
-    
-    zot = zotero.Zotero(library_id, 'group', app.config['LIBRARY'][library_id]['api_key'])
+
+    zot = zotero.Zotero(library_id, 'group',
+                        app.config['LIBRARY'][library_id]['api_key'])
     prefix = app.config['LIBRARY'][library_id].get('cluster_tag_prefix', '@')
     target = prefix + target.lstrip(prefix).upper()
 
@@ -40,7 +41,7 @@ def _apply_category_tag(library_id, tags_group, target):
 def _get_filtered_tags(library_id, purge=False, remove=None):
     """Retrieve a list of tags that have not yet been applied to annotations
     that also have a thematic (cluster) tag associated with them."""
-    
+
     tags = []
     tagfile = 'group_tags_{}.json'.format(library_id)
     jsn = os.path.join(app.data_path, tagfile)
@@ -48,31 +49,35 @@ def _get_filtered_tags(library_id, purge=False, remove=None):
 
     if os.path.exists(jsn) and not purge:
         with open(jsn, 'r') as f:
-            tags = json.load(f)
+            try:
+                tags = json.load(f)
+            except:
+                purge = True
 
-        if remove and isinstance(remove, list):
+        if remove and isinstance(remove, list) and not purge:
             for tag in remove:
                 try:
                     tags.remove(tag)
                 except ValueError:
                     continue
             with open(jsn, 'w') as f:
-                jsn.dump(tags, f)
-        return tags
+                json.dump(tags, f)
+            return tags
 
     # Filter to ONLY annotations
     # getting this from Zotero server works but seems to have a hard limit of 900 for keys
     items = zqda.core._get_items(library_id)
-    
+
     for item in items:
         if not 'annotation' in item['data']['itemType']:
             continue
+
         if not any(t['tag'].startswith(prefix) for t in item['data']['tags']):
             new = [e['tag']
                    for e in item['data']['tags'] if not e['tag'] in tags]
             tags.extend(new)
 
-    with open(jsn, 'w') as f:
+    with open(jsn, 'w', encoding='utf-8') as f:
         json.dump(tags, f, ensure_ascii=False)
     return tags
 
@@ -89,7 +94,7 @@ def tag_grouper_form(library_id, purge=False, remove=None):
     form; this tag will be converted to uppercase and prefixed with the `@`
     symbol or other character defined in the application settings under
     `LIBRARY.xxxxxxx.group_tag_prefix`. """
-    
+
     if zqda.core._check_key(library_id) is False:
         return redirect(url_for('set_key', library_id=library_id, target='tag_grouper_form'))
     out = []
