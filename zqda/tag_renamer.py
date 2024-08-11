@@ -66,5 +66,5 @@ def tag_rename_form(library_id):
                            library_id=library_id,
                            content=Markup(' '.join(out)),
                            title='Rename tags',
-                           logged_in=_check_key(library_id)
+                           logged_in=zqda.core._check_key(library_id)
                            )

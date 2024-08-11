@@ -134,5 +134,5 @@ def tag_grouper_form(library_id, purge=False, remove=None):
                            content=Markup(' '.join(out)),
                            help=Markup(HELP),
                            title='Cluster tags',
-                           logged_in=_check_key(library_id)
+                           logged_in=zqda.core._check_key(library_id)
                            )

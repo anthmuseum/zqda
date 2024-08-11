@@ -40,7 +40,7 @@ def show_annotations_tag_select(library_id):
                            content=Markup(' '.join(out)),
                            help=help,
                            title=title,
-                           logged_in=_check_key(library_id)
+                           logged_in=zqda.core._check_key(library_id)
                            )
 
 
@@ -92,5 +92,5 @@ def show_annotations(library_id, tag):
                            library_id=library_id,
                            content=Markup(' '.join(out)),
                            title='Annotations - {}'.format(tag),
-                           logged_in=_check_key(library_id)
+                           logged_in=zqda.core._check_key(library_id)
                            )
