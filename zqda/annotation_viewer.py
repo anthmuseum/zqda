@@ -39,7 +39,8 @@ def show_annotations_tag_select(library_id):
                            library_id=library_id,
                            content=Markup(' '.join(out)),
                            help=help,
-                           title=title
+                           title=title,
+                           logged_in=_check_key(library_id)
                            )
 
 
@@ -90,5 +91,6 @@ def show_annotations(library_id, tag):
     return render_template('base.html',
                            library_id=library_id,
                            content=Markup(' '.join(out)),
-                           title='Annotations - {}'.format(tag)
+                           title='Annotations - {}'.format(tag),
+                           logged_in=_check_key(library_id)
                            )

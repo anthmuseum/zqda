@@ -133,5 +133,6 @@ def tag_grouper_form(library_id, purge=False, remove=None):
                            library_id=library_id,
                            content=Markup(' '.join(out)),
                            help=Markup(HELP),
-                           title='Cluster tags'
+                           title='Cluster tags',
+                           logged_in=_check_key(library_id)
                            )
