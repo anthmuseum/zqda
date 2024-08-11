@@ -5,15 +5,15 @@ from pyzotero import zotero
 import zqda.core
 
 
-
 def _get_parent_title(library_id, parentItem):
     """Retrieve the bibliographic citation for the parent item of a PDF
     attachment containing an annotation."""
-    parent_item = zqda.core._get_item(library_id, parentItem) # the PDF attachment
+    parent_item = zqda.core._get_item(
+        library_id, parentItem)  # the PDF attachment
     if not parent_item:
         return 'No title'
     grandparent_item = zqda.core._get_item(library_id,
-        parent_item['parentItem'], data='bib')  # main item
+                                           parent_item['parentItem'], data='bib')  # main item
     title = grandparent_item
     return title
 
@@ -36,10 +36,12 @@ def show_annotations_tag_select(library_id):
     out.append('</ul>')
 
     return render_template('base.html',
+                           library_id=library_id,
                            content=Markup(' '.join(out)),
                            help=help,
                            title=title
                            )
+
 
 @app.route('/annotations/<library_id>/<tag>')
 def show_annotations(library_id, tag):
@@ -50,14 +52,14 @@ def show_annotations(library_id, tag):
     out = []
     zot = zotero.Zotero(library_id, 'group')
     items = zot.items(tag=tag,
-                        itemType='annotation',
-                        format='keys')
+                      itemType='annotation',
+                      format='keys')
     items = items.decode('utf-8').splitlines()
 
     # We still get an empty value.
     # if len(items) == 0:
     #     return render_template('base.html', content="No results!")
-    
+
     out.append('<ol>')
 
     for item_key in items:
@@ -86,8 +88,7 @@ def show_annotations(library_id, tag):
         out.append('</li>')
     out.append('</ol>')
     return render_template('base.html',
+                           library_id=library_id,
                            content=Markup(' '.join(out)),
                            title='Annotations - {}'.format(tag)
                            )
-
-

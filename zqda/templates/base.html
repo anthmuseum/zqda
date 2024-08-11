@@ -35,14 +35,31 @@
                                 href="{{ url_for('show_tags', library_id=library_id) }}">Subject
                                 tags</a></li>
                         {% endif %}
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
                         {% if library_id and not logged_in %}
+                        <li class="nav-item"><a class="nav-link"
+                                href="{{ url_for('show_annotations_tag_select', library_id=library_id) }}">Annotations</a>
+                        </li>
                         <li class="nav-item"><a class="nav-link"
                                 href="{{ url_for('login', library_id=library_id) }}">Login</a></li>
                         {% elif library_id and logged_in %}
                         <li class="nav-item"><a class="nav-link"
-                                href="{{ url_for('logout', library_id=library_id) }}">Logout</a></li>
+                                href="{{ url_for('show_annotations_tag_select', library_id=library_id) }}">Annotations</a>
+                        </li>
+                        <li class="nav-item"><a class="nav-link"
+                                href="{{ url_for('tag_grouper_form', library_id=library_id) }}">Cluster tags</a></li>
+                        <li class="nav-item"><a class="nav-link"
+                                href="{{ url_for('tag_rename_form', library_id=library_id) }}">Rename tags</a></li>
 
+
+                        <li class="nav-item"><a class="nav-link"
+                                href="{{ url_for('logout', library_id=library_id) }}">Logout</a></li>
                         {% endif %}
+
+
+
                         {% if library_id %}
                     </ul>
                 </li>

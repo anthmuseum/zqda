@@ -130,6 +130,7 @@ def tag_grouper_form(library_id, purge=False, remove=None):
     out.append('</form>')
 
     return render_template('base.html',
+                           library_id=library_id,
                            content=Markup(' '.join(out)),
                            help=Markup(HELP),
                            title='Cluster tags'

@@ -11,8 +11,9 @@ def _rename(library_id, src_tag, target_tag):
     """Update all items in the Zotero library that have been tagged with 
     `src_tag`, replacing the value of `src_tag` with the value of `target_tag`.
     """
-    
-    zot = zotero.Zotero(library_id, 'group', app.config['LIBRARY'][library_id]['api_key'])
+
+    zot = zotero.Zotero(library_id, 'group',
+                        app.config['LIBRARY'][library_id]['api_key'])
     items = zot.everything(zot.items(tag=src_tag))
     if len(items) == 0:
         return
@@ -30,7 +31,7 @@ def tag_rename_form(library_id):
     form will update the names of all modified tags.
     """
     if zqda.core._check_key(library_id) is False:
-        return redirect(url_for('set_key', library_id=library_id, 
+        return redirect(url_for('set_key', library_id=library_id,
                         target='tag_rename_form'))
     out = []
     args = request.values
@@ -62,6 +63,7 @@ def tag_rename_form(library_id):
     out.append('<script>$("#zform").dirty({preventLeaving: true})</script>')
 
     return render_template('base.html',
+                           library_id=library_id,
                            content=Markup(' '.join(out)),
                            title='Rename tags'
                            )
