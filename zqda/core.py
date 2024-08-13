@@ -431,7 +431,12 @@ def blob(library_id, item_key):
         if item['linkMode'] != 'embedded_image' and _check_key(library_id) is False:
             abort(401)
 
-    return send_file(filepath)
+    response = make_response(send_file(filepath))
+
+    if not app.config['LIBRARY'][library_id].get('robots_index', False):
+        # set robots tag for downloads
+        response.headers['X-Robots-Tag'] = 'noindex'
+    return response
 
 
 def _dict2table(library_id, data):
