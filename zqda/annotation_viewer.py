@@ -51,7 +51,8 @@ def show_annotations(library_id, tag):
     text passage from the PDF, editor comments, and a list of tags applied
     to the annotation."""
     out = []
-    zot = zotero.Zotero(library_id, 'group')
+    api_key = app.config['LIBRARY'][library_id]['api_key']
+    zot = zotero.Zotero(library_id, 'group', api_key)
     items = zot.items(tag=tag,
                       itemType='annotation',
                       format='keys')
