@@ -684,7 +684,7 @@ def annotation_form(library_id, item_key):
     url_for('annotation_form', library_id=library_id, item_key=item_key)))
     out.append('<div class="form-group mb-4">')
     out.append(
-        '<p><input type="text" value="{}" class="form-control" name="annotationComment"></p>'.format(annotationComment))
+        '<p><textarea class="form-control" name="annotationComment" rows="4">{}</textarea></p>'.format(annotationComment))
     out.append(
         '<input type="hidden" name="library_id" value="{}">'.format(library_id))
     out.append(
