@@ -635,6 +635,12 @@ def html(library_id, item_key):
                            logged_in=_check_key(library_id)
                            )
 
+@app.route('/json/<library_id>/<item_key>')
+def render_json(library_id, item_key):
+    """View a json representation of a library item."""
+
+    data = _get_item(library_id, item_key)
+    return data
 
 @app.route('/sync')
 def sync():
