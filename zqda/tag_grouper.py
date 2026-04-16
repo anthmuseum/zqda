@@ -1,6 +1,7 @@
 import os
 import json
-from flask import render_template, url_for, request, redirect, Markup
+from flask import render_template, url_for, request, redirect
+from markupsafe import Markup
 from pyzotero import zotero
 
 from zqda import app

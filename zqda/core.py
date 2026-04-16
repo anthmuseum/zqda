@@ -5,8 +5,8 @@ import operator
 import re
 import json
 
-from flask import render_template, redirect, url_for, abort, request, make_response, escape, flash, json, send_file
-from markupsafe import Markup
+from flask import render_template, redirect, url_for, abort, request, make_response, flash, json, send_file
+from markupsafe import Markup, escape
 from pyzotero import zotero, zotero_errors
 import json2table
 from werkzeug.utils import import_string
