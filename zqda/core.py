@@ -781,7 +781,7 @@ def _link(library_id, item_key):
         title = bib
     else:
         title = title_data
-    link = url_for('html', library_id=library_id, item_key=item_key)
+    link = url_for('html', library_id=library_id, item_key=item_key.decode('utf-8'))
     icon = '<i class="bi bi-file-earmark h2 text-primary"></i>'
     if item_data.get('itemType', '') == 'collection':
         icon = '<i class="bi bi-folder h2 text-primary"></i>'
