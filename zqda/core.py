@@ -871,7 +871,7 @@ def tag_list(library_id, tag_name):
         abort(404)
     links = []
     for item_key in items:
-        links.append(_link(library_id, item_key))
+        links.append(_link(library_id, item_key.encode('utf-8')))
     
     content = '<table class="table">' + \
             ''.join(sorted(links)) + '</table>'
